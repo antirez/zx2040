@@ -1,0 +1,96 @@
+#include <stdio.h>
+#include "pico/stdlib.h"
+#include "hardware/vreg.h"
+#include "st77xx.h"
+
+#define CHIPS_IMPL
+#include "chips_common.h"
+#include "z80.h"
+#include "beeper.h"
+#include "kbd.h"
+#include "clk.h"
+#include "mem.h"
+#include "zx.h"
+#include "zx-roms.h"
+
+static const uint32_t zxpalette[16] = {
+    0xFF000000,     // std black
+    0xFFD70000,     // std blue
+    0xFF0000D7,     // std red
+    0xFFD700D7,     // std magenta
+    0xFF00D700,     // std green
+    0xFFD7D700,     // std cyan
+    0xFF00D7D7,     // std yellow
+    0xFFD7D7D7,     // std white
+    0xFF000000,     // bright black
+    0xFFFF0000,     // bright blue
+    0xFF0000FF,     // bright red
+    0xFFFF00FF,     // bright magenta
+    0xFF00FF00,     // bright green
+    0xFFFFFF00,     // bright cyan
+    0xFF00FFFF,     // bright yellow
+    0xFFFFFFFF,     // bright white
+};
+
+#define FRAME_USEC (33333)
+static zx_t zx;
+
+uint16_t palette_to_565(uint32_t color) {
+    return st77xx_rgb565(color & 0xff, (color>>8) & 0xff, (color>>16) & 0xff);
+}
+
+void update_display(uint8_t *crt) {
+    crt += 160*121;
+    uint16_t line[st77_width];
+    for (uint32_t y = 0; y < st77_height; y++) {
+        for (uint32_t x = 0; x < st77_width; x += 2) {
+            uint8_t pixels = crt[x>>1];
+            line[x] = palette_to_565(zxpalette[(pixels>>4)&0xf]);
+            line[x+1] = palette_to_565(zxpalette[pixels&0xf]);
+        }
+        st77xx_setwin(0, y, st77_width-1, y);
+        st77xx_data(line,sizeof(line));
+        crt += 160;
+    }
+}
+
+int main() {
+    // Pico Init
+    stdio_init_all();
+    const uint LED_PIN = PICO_DEFAULT_LED_PIN;
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
+
+    // Display initialization
+    st77xx_init();
+    st77xx_fill(0xffff);
+    for (int x = 0; x < 100; x++)
+        st77xx_pixel(x,x,0x0000);
+
+    // Overclocking
+    vreg_set_voltage(VREG_VOLTAGE_1_30);
+    sleep_ms(1000);
+    set_sys_clock_khz(304000, true);
+
+    // ZX emulator Init
+    zx_desc_t zx_desc = {0};
+    zx_desc.type = ZX_TYPE_48K;
+    zx_desc.joystick_type = ZX_JOYSTICKTYPE_KEMPSTON;
+    zx_desc.audio.callback.func = NULL;
+    zx_desc.audio.sample_rate = 0;
+    zx_desc.roms.zx48k.ptr = dump_amstrad_zx48k_bin;
+    zx_desc.roms.zx48k.size = sizeof(dump_amstrad_zx48k_bin);
+
+    zx_init(&zx, &zx_desc);
+
+    int pin_state = 1;
+    while (true) {
+        gpio_put(LED_PIN, pin_state);
+        absolute_time_t start = get_absolute_time();
+        zx_exec(&zx, FRAME_USEC);
+        absolute_time_t end = get_absolute_time();
+        update_display(zx.fb);
+        pin_state = !pin_state;
+        printf("zx_exec(): %llu us\n",(unsigned long long)end-start);
+    }
+}
