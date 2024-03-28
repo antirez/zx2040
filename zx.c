@@ -13,23 +13,24 @@
 #include "zx.h"
 #include "zx-roms.h"
 
+/* Modified for even RGB565 conversion. */
 static const uint32_t zxpalette[16] = {
-    0xFF000000,     // std black
-    0xFFD70000,     // std blue
-    0xFF0000D7,     // std red
-    0xFFD700D7,     // std magenta
-    0xFF00D700,     // std green
-    0xFFD7D700,     // std cyan
-    0xFF00D7D7,     // std yellow
-    0xFFD7D7D7,     // std white
-    0xFF000000,     // bright black
-    0xFFFF0000,     // bright blue
-    0xFF0000FF,     // bright red
-    0xFFFF00FF,     // bright magenta
-    0xFF00FF00,     // bright green
-    0xFFFFFF00,     // bright cyan
-    0xFF00FFFF,     // bright yellow
-    0xFFFFFFFF,     // bright white
+    0x000000,     // std black
+    0xD80000,     // std blue
+    0x0000D8,     // std red
+    0xD800D8,     // std magenta
+    0x00D800,     // std green
+    0xD8D800,     // std cyan
+    0x00D8D8,     // std yellow
+    0xD8D8D8,     // std white
+    0x000000,     // bright black
+    0xFF0000,     // bright blue
+    0x0000FF,     // bright red
+    0xFF00FF,     // bright magenta
+    0x00FF00,     // bright green
+    0xFFFF00,     // bright cyan
+    0x00FFFF,     // bright yellow
+    0xFFFFFF,     // bright white
 };
 
 #define FRAME_USEC (33333)
@@ -92,5 +93,8 @@ int main() {
         update_display(zx.fb);
         pin_state = !pin_state;
         printf("zx_exec(): %llu us\n",(unsigned long long)end-start);
+
+        zx_key_down(&zx,'p');
+        zx_key_up(&zx,'p');
     }
 }

@@ -124,7 +124,8 @@ void st77xx_setwin(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
 }
 
 uint16_t st77xx_rgb565(uint8_t r, uint8_t g, uint8_t b) {
-    return (r & 0xf8) << 8 | (g & 0xfc) << 3 | b >> 3;
+    uint16_t rgb = (r & 0xf8) << 8 | (g & 0xfc) << 3 | b >> 3;
+    return (rgb >> 8) | ((rgb & 0xff) << 8);
 }
 
 void st77xx_pixel(uint16_t x, uint16_t y, uint16_t c) {
