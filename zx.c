@@ -14,7 +14,7 @@
 #include "zx-roms.h"
 
 /* Modified for even RGB565 conversion. */
-static const uint32_t zxpalette[16] = {
+static uint32_t zxpalette[16] = {
     0x000000,     // std black
     0xD80000,     // std blue
     0x0000D8,     // std red
@@ -46,8 +46,8 @@ void update_display(uint8_t *crt) {
     for (uint32_t y = 0; y < st77_height; y++) {
         for (uint32_t x = 0; x < st77_width; x += 2) {
             uint8_t pixels = crt[x>>1];
-            line[x] = palette_to_565(zxpalette[(pixels>>4)&0xf]);
-            line[x+1] = palette_to_565(zxpalette[pixels&0xf]);
+            line[x] = zxpalette[(pixels>>4)&0xf];
+            line[x+1] = zxpalette[pixels&0xf];
         }
         st77xx_setwin(0, y, st77_width-1, y);
         st77xx_data(line,sizeof(line));
@@ -67,6 +67,10 @@ int main() {
     st77xx_fill(0xffff);
     for (int x = 0; x < 100; x++)
         st77xx_pixel(x,x,0x0000);
+
+    // Convert palette to RGB565
+    for (int j = 0; j < 16; j++)
+        zxpalette[j] = palette_to_565(zxpalette[j]);
 
     // Overclocking
     vreg_set_voltage(VREG_VOLTAGE_1_30);
@@ -94,7 +98,23 @@ int main() {
         pin_state = !pin_state;
         printf("zx_exec(): %llu us\n",(unsigned long long)end-start);
 
-        zx_key_down(&zx,'p');
-        zx_key_up(&zx,'p');
+        static int kbstep = 0, bc = 0;
+        if (kbstep == 0) {
+            zx_key_down(&zx,'b');
+        } else if (kbstep == 1) {
+            zx_key_up(&zx,'b');
+        } else if (kbstep == 2) {
+            zx_key_down(&zx,'0'+bc);
+        } else if (kbstep == 3) {
+            zx_key_up(&zx,'0'+bc);
+            bc++;
+            if (bc == 7) bc = 0;
+        } else if (kbstep == 4) {
+            zx_key_down(&zx,'\r');
+        } else if (kbstep == 5) {
+            zx_key_up(&zx,'\r');
+        }
+        kbstep++;
+        if (kbstep == 6) kbstep = 0;
     }
 }

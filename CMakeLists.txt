@@ -22,7 +22,8 @@ pico_enable_stdio_uart(zx 0)
  
 # Add pico_stdlib library which aggregates commonly used features
 target_link_libraries(zx pico_stdlib hardware_spi)
-target_compile_options(zx PRIVATE -Ofast)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+#target_compile_options(zx PRIVATE -Ofast)
 
 # create map/bin/hex/uf2 file in addition to ELF.
 pico_add_extra_outputs(zx)
