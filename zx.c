@@ -75,7 +75,7 @@ int main() {
     // Overclocking
     vreg_set_voltage(VREG_VOLTAGE_1_30);
     sleep_ms(1000);
-    set_sys_clock_khz(304000, true);
+    set_sys_clock_khz(450000, true);
 
     // ZX emulator Init
     zx_desc_t zx_desc = {0};

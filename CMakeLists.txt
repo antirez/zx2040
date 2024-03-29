@@ -22,8 +22,9 @@ pico_enable_stdio_uart(zx 0)
  
 # Add pico_stdlib library which aggregates commonly used features
 target_link_libraries(zx pico_stdlib hardware_spi)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -funroll-loops -g -ggdb")
 #target_compile_options(zx PRIVATE -Ofast)
 
 # create map/bin/hex/uf2 file in addition to ELF.
 pico_add_extra_outputs(zx)
+pico_set_binary_type(zx copy_to_ram)
