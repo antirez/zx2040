@@ -56,6 +56,13 @@ void update_display(uint8_t *crt) {
 }
 
 int main() {
+    uint32_t base_clock = 280000, emu_clock = 450000;
+
+    // Overclocking
+    vreg_set_voltage(VREG_VOLTAGE_1_30);
+    sleep_ms(1000);
+    set_sys_clock_khz(base_clock, true);
+
     // Pico Init
     stdio_init_all();
     const uint LED_PIN = PICO_DEFAULT_LED_PIN;
@@ -72,11 +79,6 @@ int main() {
     for (int j = 0; j < 16; j++)
         zxpalette[j] = palette_to_565(zxpalette[j]);
 
-    // Overclocking
-    vreg_set_voltage(VREG_VOLTAGE_1_30);
-    sleep_ms(1000);
-    set_sys_clock_khz(450000, true);
-
     // ZX emulator Init
     zx_desc_t zx_desc = {0};
     zx_desc.type = ZX_TYPE_48K;
@@ -92,7 +94,11 @@ int main() {
     while (true) {
         gpio_put(LED_PIN, pin_state);
         absolute_time_t start = get_absolute_time();
+
+        set_sys_clock_khz(emu_clock, true); sleep_us(50);
         zx_exec(&zx, FRAME_USEC);
+        set_sys_clock_khz(base_clock, true); sleep_us(50);
+
         absolute_time_t end = get_absolute_time();
         update_display(zx.fb);
         pin_state = !pin_state;
@@ -116,5 +122,9 @@ int main() {
         }
         kbstep++;
         if (kbstep == 6) kbstep = 0;
+
+        // Flash access.
+        uint32_t *p = (uint32_t*) 0x10000000;
+        printf("Flash: %lu %lu %lu\n", p[0], p[1], p[2]);
     }
 }
