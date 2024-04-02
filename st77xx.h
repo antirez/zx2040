@@ -1,39 +1,262 @@
 #include "hardware/spi.h"
+#include "hardware/dma.h"
+#include "hardware/gpio.h"
+#include "hardware/pio.h"
+#include "hardware/pwm.h"
+#include "hardware/clocks.h"
 
-// SPI configuration
-#define spi_rate 40000000
-#define spi_phase 1
-#define spi_polarity 1
-#define spi_channel spi0
+#include "st77xx_config.h"
 
-// Pins configuration
-#define st77_sck 2
-#define st77_mosi 3
-#define st77_rst 7
-#define st77_dc 6
-#define st77_cs -1
-#define st77_bl 8 // Backlight pin
+// Undefine this to use big banging to implement the parallel protocol.
+// Otherwise PIO with DMA will be used. Bitbanging is slower but allows
+// to drive the display if all the PIO state machines or the PIO FIFO
+// are used for other goals.
+#define st77_parallel_bb
 
-// Display settings
-#define st77_width 240
-#define st77_height 135
-#define st77_landscape 1
-#define st77_mirror_x 0
-#define st77_mirror_y 1
-#define st77_inversion 1
-#define st77_offset_x 40
-#define st77_offset_y 52
+#ifdef st77_use_spi
+// Bus setup: SPI version. Very straightforward.
+void st77xx_init_spi(void) {
+    // SPI initializatin.
+    gpio_init(st77_dc);
+    gpio_set_dir(st77_dc,GPIO_OUT);
+    if (st77_rst != -1) {
+        gpio_init(st77_rst);
+        gpio_set_dir(st77_rst,GPIO_OUT);
+    }
+    if (st77_cs != -1) {
+        gpio_init(st77_cs);
+        gpio_set_dir(st77_cs,GPIO_OUT);
+    }
+    spi_init(spi_channel,spi_rate);
+    spi_set_format(spi_channel, 8, spi_polarity, spi_phase, SPI_MSB_FIRST);
+    gpio_set_function(st77_sck,GPIO_FUNC_SPI);
+    gpio_set_function(st77_mosi,GPIO_FUNC_SPI);
+}
+#endif
+
+#ifdef st77_use_parallel
+#ifdef st77_parallel_bb
+void st77xx_init_parallel(void) {
+    gpio_init(st77_dc);
+    gpio_set_dir(st77_dc,GPIO_OUT);
+
+    if (st77_rst != -1) {
+        gpio_init(st77_rst);
+        gpio_set_dir(st77_rst,GPIO_OUT);
+    }
+    if (st77_cs != -1) {
+        gpio_init(st77_cs);
+        gpio_set_dir(st77_cs,GPIO_OUT);
+    }
+
+    // The read clock pin is never used to actually read from the
+    // display. If available, it's configured only to put it into a
+    // known state.
+    if (st77_rd != -1) {
+        gpio_init(st77_rd);
+        gpio_set_dir(st77_rd,GPIO_OUT);
+        gpio_put(st77_rd,1);
+    }
+
+    // Configure write clock and data lines.
+    gpio_init(st77_wr);
+    gpio_set_dir(st77_wr,GPIO_OUT);
+    gpio_put(st77_wr,1);
+    for (int j = 0; j < 8; j++) {
+        gpio_init(st77_d0+j);
+        gpio_set_dir(st77_d0+j,GPIO_OUT);
+    }
+}
+
+#else // Parallel with PIO
+
+static unsigned int st77_sm, st77_dma;
+
+// Bus setup: Parallel 8 lines using PIO and DMA. A bit more convoluted.
+void st77xx_init_parallel(void) {
+    unsigned int offset;
+
+    /* ========================= Non PIO pins setup  ======================== */
+    
+    // Data/Command pin.
+    gpio_init(st77_dc);
+    gpio_set_dir(st77_dc,GPIO_OUT);
+
+    // The read clock pin is never used to actually read from the
+    // display. If available, it's configured only to put it into a
+    // known state (high = no reading).
+    if (st77_rd != -1) {
+        gpio_set_function(st77_rd,GPIO_FUNC_SIO);
+        gpio_set_dir(st77_rd,GPIO_OUT);
+        gpio_put(st77_rd,1);
+    }
+
+    // Client selection and reset are optional pins as well, but
+    // if defined we need to use them.
+    if (st77_rst != -1) {
+        gpio_init(st77_rst);
+        gpio_set_dir(st77_rst,GPIO_OUT);
+    }
+    if (st77_cs != -1) {
+        gpio_init(st77_cs);
+        gpio_set_dir(st77_cs,GPIO_OUT);
+    }
+
+    /* ============================= PIO setup ============================== */
+
+    static const uint16_t pio_program_data[] = {
+        0x6008, //  0: out    pins, 8         side 0
+        0x90e0, //  1: pull   ifempty block   side 1
+    };
+
+    static const struct pio_program pp = {
+        .instructions = pio_program_data,
+        .length = 2,
+        .origin = -1,
+    };
+
+    // Get a state machine and load the program.
+    st77_sm = pio_claim_unused_sm(pio_channel,true);
+    offset = pio_add_program(pio_channel,&pp);
+
+    // Setup all the pins used by the state machine, as PIO pins.
+    pio_gpio_init(pio_channel, st77_wr);
+    for (int j = 0; j < 8; j++) pio_gpio_init(pio_channel, st77_d0+j);
+
+    // Associate data and WR clock pins to the state machine.
+    pio_sm_set_consecutive_pindirs(pio_channel, st77_sm, st77_d0, 8, true);
+    pio_sm_set_consecutive_pindirs(pio_channel, st77_sm, st77_wr, 1, true);
+
+    // Configure the state machine:
+    pio_sm_config c = pio_get_default_sm_config();
+    sm_config_set_wrap(&c, offset, offset+1); // Program is 2 instructions.
+    sm_config_set_sideset(&c, 1, false, false); // 1 sideset pin.
+    sm_config_set_out_pins(&c,st77_d0,8);       // 8 output pins.
+    sm_config_set_sideset_pins(&c,st77_wr);     // Specify sideset pin.
+
+    // Set a 8 words FIFO using the 4 RX and 4 TX FIFOs.
+    sm_config_set_fifo_join(&c,PIO_FIFO_JOIN_TX);
+    // Use shift_right = false, autopool = true with threshold of 8 bits.
+    sm_config_set_out_shift(&c,false,true,8);
+
+    // Set the PIO clock divider according to the current system clock
+    uint32_t wanted_mhz = 32000000;
+    uint32_t cpu_mhz = clock_get_hz(clk_sys);
+    // We add wanted_mhz-1 to be sure to get a clock lower or equal,
+    // but lever higher than the wanted one.
+    uint32_t div = (cpu_mhz+(wanted_mhz-1)) / wanted_mhz;
+    printf("ST77 parallel ST clock divider set to %d\n", div);
+    sm_config_set_clkdiv(&c, div);
+
+    // Start the state machine.
+    pio_sm_init(pio_channel,st77_sm,offset,&c);
+    pio_sm_set_enabled(pio_channel,st77_sm,true);
+
+    // Configure the DMA channel.
+    st77_dma = dma_claim_unused_channel(true);
+    dma_channel_config dmc = dma_channel_get_default_config(st77_dma);
+    channel_config_set_transfer_data_size(&dmc,DMA_SIZE_8);
+    channel_config_set_bswap(&dmc,false);
+    channel_config_set_dreq(&dmc,pio_get_dreq(pio_channel,st77_sm,true));
+    dma_channel_configure(st77_dma,&dmc,&pio_channel->txf[st77_sm],NULL,0,false);
+}
+#endif
+#endif
+
+#ifdef st77_use_parallel
+#ifdef st77_parallel_bb
+/* Bit banging implemenation. This is not slower then the DMA version
+ * so if the idea is to use the DMA in blocking mode, this could be
+ * a better bet: keeps the state machine available for other uses.
+ *
+ * We need to take WR low and then high for at least 15
+ * nanoseconds. At the default clock speed of the RP2040
+ * this is more or less two clock cycles (two NOP instructions)
+ * but if we got faster we will need to wait more.
+ *
+ * __asm volatile ("nop\n"); // Wait 1 clock cycle (~8 ns) normally.
+ * __asm volatile ("nop\n"); // 2 clock cycles ~16ns.
+ *
+ *
+ * NOP at 130Mhz: ~8ns (2 needed)
+ *     at 250Mhz: 4ns  (4 needed)
+ *     at 330Mhz: 3ns  (5 needed)
+ *     at 400Mhz: 2.5ns (6 needed)
+ *     at 500Mhz: 2ns  (8 needed)
+ *
+ * We also have the gpio_put() instruction (should take
+ * two clock cycle), but we should not take this into account
+ * as we don't know when the pin state is actually changed
+ * exactly among the two clock cycles: could be even at the
+ * very end. */
+void parallel_write_blocking(void *data, uint32_t datalen) {
+    uint8_t *d = data;
+    for (int j = 0; j < datalen; j++) {
+        uint8_t byte = d[j];
+        // WR clock low
+        gpio_put(st77_wr,0);
+        __asm volatile ("nop\n"); __asm volatile ("nop\n");
+        __asm volatile ("nop\n"); __asm volatile ("nop\n");
+
+        // Set byte to D0-D7
+        for (int i = 0; i < 8; i++)
+            gpio_put(st77_d0+i,(byte>>i)&1);
+
+        // WR clock high
+        gpio_put(st77_wr,1);
+        __asm volatile ("nop\n"); __asm volatile ("nop\n");
+        __asm volatile ("nop\n"); __asm volatile ("nop\n");
+    }
+}
+#else
+// Send bytes to the display using the parallel 8 lines interface.
+// PIO version with DMA.
+//
+// Note that the setup of writes is not very fast, while writing
+// bulk data is very efficient (matches the maximum clock speed
+// that the display can handle). So writing a lot of data in one
+// call is the way to go: if you have enough RAM, take a framebuffer
+// of the display in memory and use st77xx_update().
+void parallel_write_blocking(void *data, uint32_t datalen) {
+    // Wait for the DMA channel to be available.
+    while (dma_channel_is_busy(st77_dma));
+    // Set DMA source/length.
+    dma_channel_set_trans_count(st77_dma,datalen,false);
+    dma_channel_set_read_addr(st77_dma,data,true);
+    // Wait end of DMA transfer.
+    dma_channel_wait_for_finish_blocking(st77_dma);
+    // Wait for the state machine to consume the FIFO.
+    while(!pio_sm_is_tx_fifo_empty(pio_channel,st77_sm));
+
+    // Avoid that successive calls to this function will make
+    // the WR clock change state faster than the display
+    // can handle: six NOPs are a compromise between not waiting
+    // too much and max overclock speed that can be handled.
+    __asm volatile ("nop\n"); __asm volatile ("nop\n");
+    __asm volatile ("nop\n"); __asm volatile ("nop\n");
+    __asm volatile ("nop\n"); __asm volatile ("nop\n");
+}
+#endif
+#endif
 
 /* Send command and/or data. */
 void st77xx_write(uint8_t cmd, void *data, uint32_t datalen) {
     if (st77_cs != -1) gpio_put(st77_cs,0);
     if (cmd != 0) {
         gpio_put(st77_dc,0);
+#ifdef st77_use_spi
         spi_write_blocking(spi_channel,&cmd,1);
+#else
+        parallel_write_blocking(&cmd,1);
+#endif
     }
     if (data != NULL) {
         gpio_put(st77_dc,1);
+#ifdef st77_use_spi
         spi_write_blocking(spi_channel,data,datalen);
+#else
+        parallel_write_blocking(data,datalen);
+#endif
     }
     if (st77_cs != -1) gpio_put(st77_cs,1);
 }
@@ -55,21 +278,18 @@ void st77xx_data(void *data, uint32_t datalen) {
 
 /* Display initialization. */
 void st77xx_init(void) {
-    // SPI initializatin.
-    gpio_init(st77_dc);
-    gpio_set_dir(st77_dc,GPIO_OUT);
-    if (st77_rst != -1) {
-        gpio_init(st77_rst);
-        gpio_set_dir(st77_rst,GPIO_OUT);
+    #ifdef st77_use_spi
+    st77xx_init_spi();
+    #else
+    st77xx_init_parallel();
+    #endif
+
+    // Power on the backlight
+    if (st77_bl != -1) {
+        gpio_init(st77_bl);
+        gpio_set_dir(st77_bl,GPIO_OUT);
+        gpio_put(st77_bl,1);
     }
-    if (st77_cs != -1) {
-        gpio_init(st77_cs);
-        gpio_set_dir(st77_cs,GPIO_OUT);
-    }
-    spi_init(spi_channel,spi_rate);
-    spi_set_format(spi_channel, 8, spi_polarity, spi_phase, SPI_MSB_FIRST);
-    gpio_set_function(st77_sck,GPIO_FUNC_SPI);
-    gpio_set_function(st77_mosi,GPIO_FUNC_SPI);
 
     // Display initialization
     if (st77_rst != -1) {
@@ -140,9 +360,17 @@ void st77xx_pixel_rgb(uint16_t x, uint16_t y, uint32_t rgb) {
 }
 
 void st77xx_fill(uint16_t c) {
+    const unsigned int buflen = 256;
+    uint16_t buf[buflen];
+    uint32_t left = st77_width*st77_height;
+    for (int j = 0; j < buflen; j++) buf[j] = c;
+
     st77xx_setwin(0,0,st77_width-1,st77_height-1);
-    for (int j = 0; j < st77_width*st77_height; j++)
-        st77xx_data(&c,2);
+    while(left >= buflen) {
+        st77xx_data(buf,buflen*2);
+        left -= buflen;
+    }
+    if (left > 0) st77xx_data(buf,left*2);
 }
 
 void st77xx_update(uint16_t *fb) {

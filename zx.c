@@ -2,6 +2,7 @@
 #include "pico/stdlib.h"
 #include "hardware/vreg.h"
 #include "st77xx.h"
+#include "keys_config.h"
 
 #define CHIPS_IMPL
 #include "chips_common.h"
@@ -41,7 +42,7 @@ uint16_t palette_to_565(uint32_t color) {
 }
 
 void update_display(uint8_t *crt) {
-    crt += 160*121;
+    // crt += 160*121;
     uint16_t line[st77_width];
     for (uint32_t y = 0; y < st77_height; y++) {
         for (uint32_t x = 0; x < st77_width; x += 2) {
@@ -56,7 +57,7 @@ void update_display(uint8_t *crt) {
 }
 
 int main() {
-    uint32_t base_clock = 280000, emu_clock = 450000;
+    uint32_t base_clock = 280000, emu_clock = 400000;
 
     // Overclocking
     vreg_set_voltage(VREG_VOLTAGE_1_30);
@@ -90,6 +91,12 @@ int main() {
 
     zx_init(&zx, &zx_desc);
 
+    // Load Jetpac
+    #if 1
+    chips_range_t prg_data = {.ptr=(void*)0x1007f100, .size=10848};
+    zx_quickload(&zx, prg_data);
+    #endif
+
     int pin_state = 1;
     while (true) {
         gpio_put(LED_PIN, pin_state);
@@ -104,24 +111,15 @@ int main() {
         pin_state = !pin_state;
         printf("zx_exec(): %llu us\n",(unsigned long long)end-start);
 
-        static int kbstep = 0, bc = 0;
-        if (kbstep == 0) {
-            zx_key_down(&zx,'b');
-        } else if (kbstep == 1) {
-            zx_key_up(&zx,'b');
-        } else if (kbstep == 2) {
-            zx_key_down(&zx,'0'+bc);
-        } else if (kbstep == 3) {
-            zx_key_up(&zx,'0'+bc);
-            bc++;
-            if (bc == 7) bc = 0;
-        } else if (kbstep == 4) {
-            zx_key_down(&zx,'\r');
-        } else if (kbstep == 5) {
-            zx_key_up(&zx,'\r');
-        }
-        kbstep++;
-        if (kbstep == 6) kbstep = 0;
+        // Handle key presses.
+        for (int j = 0; j < sizeof(key_map); j += 3)
+            if (gpio_get(key_map[j])) {
+                zx_key_down(&zx,key_map[j+1]);  // key
+                zx_key_down(&zx,key_map[j+2]);  // joystick
+            } else { 
+                zx_key_up(&zx,key_map[j+1]);
+                zx_key_up(&zx,key_map[j+2]);
+            }
 
         // Flash access.
         uint32_t *p = (uint32_t*) 0x10000000;
