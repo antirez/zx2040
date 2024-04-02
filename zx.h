@@ -418,10 +418,11 @@ static uint64_t _zx_tick(zx_t* sys, uint64_t pins) {
         }
     }
 
+    #if 0
     // tick the AY at half frequency, use the buffered chip select
     // pin mask so that the AY doesn't miss any IO requests
     if (++sys->tick_count & 1) {
-        //ay38910_tick(&sys->ay);
+        ay38910_tick(&sys->ay);
     }
 
     // tick the beeper
@@ -436,6 +437,7 @@ static uint64_t _zx_tick(zx_t* sys, uint64_t pins) {
             sys->audio.sample_pos = 0;
         }
     }
+    #endif
     return pins;
 }
 
