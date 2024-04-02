@@ -195,7 +195,6 @@ void parallel_write_blocking(void *data, uint32_t datalen) {
         // WR clock low
         gpio_put(st77_wr,0);
         __asm volatile ("nop\n"); __asm volatile ("nop\n");
-        __asm volatile ("nop\n"); __asm volatile ("nop\n");
 
         // Set byte to D0-D7.
         // Vanilla code would be:
@@ -206,11 +205,9 @@ void parallel_write_blocking(void *data, uint32_t datalen) {
         // Bit it's much faster to set them all in oen pass:
         gpio_put_masked(0xff<<st77_d0,byte<<st77_d0);
         __asm volatile ("nop\n"); __asm volatile ("nop\n");
-        __asm volatile ("nop\n"); __asm volatile ("nop\n");
 
         // WR clock high
         gpio_put(st77_wr,1);
-        __asm volatile ("nop\n"); __asm volatile ("nop\n");
         __asm volatile ("nop\n"); __asm volatile ("nop\n");
     }
 }
