@@ -185,10 +185,9 @@ void st77xx_init_parallel(void) {
  *     at 500Mhz: 2ns  (8 needed)
  *
  * We also have the gpio_put() instruction (should take
- * two clock cycle), but we should not take this into account
- * as we don't know when the pin state is actually changed
- * exactly among the two clock cycles: could be even at the
- * very end. */
+ * two clock cycle). Even if I'm not sure in which cycle
+ * the pin is finally set. In general to remove two NOPs
+ * from the above table seems fine. */
 void parallel_write_blocking(void *data, uint32_t datalen) {
     uint8_t *d = data;
     for (int j = 0; j < datalen; j++) {
@@ -198,9 +197,16 @@ void parallel_write_blocking(void *data, uint32_t datalen) {
         __asm volatile ("nop\n"); __asm volatile ("nop\n");
         __asm volatile ("nop\n"); __asm volatile ("nop\n");
 
-        // Set byte to D0-D7
-        for (int i = 0; i < 8; i++)
-            gpio_put(st77_d0+i,(byte>>i)&1);
+        // Set byte to D0-D7.
+        // Vanilla code would be:
+        //
+        // for (int i = 0; i < 8; i++)
+        //     gpio_put(st77_d0+i,(byte>>i)&1);
+        //
+        // Bit it's much faster to set them all in oen pass:
+        gpio_put_masked(0xff<<st77_d0,byte<<st77_d0);
+        __asm volatile ("nop\n"); __asm volatile ("nop\n");
+        __asm volatile ("nop\n"); __asm volatile ("nop\n");
 
         // WR clock high
         gpio_put(st77_wr,1);

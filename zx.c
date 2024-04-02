@@ -99,17 +99,20 @@ int main() {
 
     int pin_state = 1;
     while (true) {
+        absolute_time_t start, end;
+
         gpio_put(LED_PIN, pin_state);
-        absolute_time_t start = get_absolute_time();
 
         set_sys_clock_khz(emu_clock, true); sleep_us(50);
+        start = get_absolute_time();
         zx_exec(&zx, FRAME_USEC);
+        printf("zx_exec(): %llu us\n",(unsigned long long)end-start);
         set_sys_clock_khz(base_clock, true); sleep_us(50);
+        end = get_absolute_time();
 
-        absolute_time_t end = get_absolute_time();
+        start = get_absolute_time();
         update_display(zx.fb);
         pin_state = !pin_state;
-        printf("zx_exec(): %llu us\n",(unsigned long long)end-start);
 
         // Handle key presses.
         for (int j = 0; j < sizeof(key_map); j += 3)
