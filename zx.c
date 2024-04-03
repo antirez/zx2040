@@ -34,13 +34,37 @@ static uint32_t zxpalette[16] = {
     0xFFFFFF,     // bright white
 };
 
-#define FRAME_USEC (33333)
-static zx_t zx;
+/* ========================== Global state and defines ====================== */
 
+// We are not able to reach 30FPS, but still this is a good amount of
+// work for each zx_exec() call. Updating the display takes ~13 milliseconds
+// so to do this too often it's not a great idea.
+#define FRAME_USEC (33333)
+
+static zx_t zx; // The emulator state.
+
+// We switch betweent wo clocks: one is selected just for zx_exec(), that
+// is the most speed critical code path. For all the other code execution
+// we stay to a lower overclocking mode that is low enough to allow the
+// flash memory to be accessed without issues.
+uint32_t BASE_CLOCK = 280000;
+uint32_t EMU_CLOCK = 400000;
+
+/* =========================== Emulator implementation ====================== */
+
+
+// ZX Spectrum palette to RGB565 conversion. We do it at startup to avoid
+// burning CPU cycles later.
 uint16_t palette_to_565(uint32_t color) {
     return st77xx_rgb565(color & 0xff, (color>>8) & 0xff, (color>>16) & 0xff);
 }
 
+// Transfer the Spectrum CRT representation into the ST77xx display.
+// We allocate just a scanline of buffer and transfer it one at a time.
+//
+// Note that the zx.h file included here was modified in order to use
+// 4bpp framebuffer to save memory, so each byte in the CRT memory is
+// actually two pixels.
 void update_display(uint8_t *crt) {
     // crt += 160*121;
     uint16_t line[st77_width];
@@ -90,12 +114,9 @@ void handle_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks) {
 }
 
 int main() {
-    uint32_t base_clock = 280000, emu_clock = 400000;
-
     // Overclocking
     vreg_set_voltage(VREG_VOLTAGE_1_30);
-    sleep_ms(1000);
-    set_sys_clock_khz(base_clock, true);
+    set_sys_clock_khz(BASE_CLOCK, true);
 
     // Pico Init
     stdio_init_all();
@@ -148,12 +169,12 @@ int main() {
 
         handle_key_press(&zx, keymap, ticks);
 
-        set_sys_clock_khz(emu_clock, true); sleep_us(50);
+        set_sys_clock_khz(EMU_CLOCK, true); sleep_us(50);
         start = get_absolute_time();
         zx_exec(&zx, FRAME_USEC);
         end = get_absolute_time();
         printf("zx_exec(): %llu us\n",(unsigned long long)end-start);
-        set_sys_clock_khz(base_clock, true); sleep_us(50);
+        set_sys_clock_khz(BASE_CLOCK, true); sleep_us(50);
 
         start = get_absolute_time();
         update_display(zx.fb);
