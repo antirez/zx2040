@@ -39,9 +39,9 @@
 const uint8_t keymap_default[] = {
     KEY_A, '1', KEMPTON_LEFT,
     KEY_B, '2', KEMPTON_RIGHT,
-    KEY_C, '4', KEMPTON_UP,
+    KEY_C, '4', KEMPTON_FIRE,
     KEY_DOWN, '3', KEMPTON_DOWN,
-    KEY_UP, '5', KEMPTON_FIRE,
+    KEY_UP, '5', KEMPTON_UP,
     KEY_END, 0, 0,
 };
 

@@ -149,16 +149,16 @@ int main() {
     // Load game
     #if 1
     // Jetpac
-    // chips_range_t prg_data = {.ptr=(void*)0x1007f100, .size=10848};
-    // keymap = keymap_default;
+     chips_range_t prg_data = {.ptr=(void*)0x1007f100, .size=10848};
+     keymap = keymap_default;
 
     // Bombjack
     // chips_range_t prg_data = {.ptr=(void*)0x10081b60, .size=40918};
     // keymap = keymap_bombjack;
 
     // Thrust
-    chips_range_t prg_data = {.ptr=(void*)0x1008bb36, .size=33938};
-    keymap = keymap_thrust;
+    // chips_range_t prg_data = {.ptr=(void*)0x1008bb36, .size=33938};
+    // keymap = keymap_thrust;
 
     zx_quickload(&zx, prg_data);
     #endif
