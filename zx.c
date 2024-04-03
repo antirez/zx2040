@@ -90,18 +90,28 @@ int main() {
     zx_desc.roms.zx48k.size = sizeof(dump_amstrad_zx48k_bin);
 
     zx_init(&zx, &zx_desc);
+    const uint8_t *keymap = keymap_default;
 
-    // Load Jetpac
+    // Load game
     #if 1
-    chips_range_t prg_data = {.ptr=(void*)0x1007f100, .size=10848};
+    // Jetpac
+    // chips_range_t prg_data = {.ptr=(void*)0x1007f100, .size=10848};
+    // keymap = keymap_default;
+
+    // Bombjack
+    // chips_range_t prg_data = {.ptr=(void*)0x10081b60, .size=40918};
+    // keymap = keymap_bombjack;
+
+    // Thrust
+    chips_range_t prg_data = {.ptr=(void*)0x1008bb36, .size=33938};
+    keymap = keymap_thrust;
+
     zx_quickload(&zx, prg_data);
     #endif
 
-    int pin_state = 1;
+    uint32_t ticks = 0;
     while (true) {
         absolute_time_t start, end;
-
-        gpio_put(LED_PIN, pin_state);
 
         set_sys_clock_khz(emu_clock, true); sleep_us(50);
         start = get_absolute_time();
@@ -113,21 +123,40 @@ int main() {
         start = get_absolute_time();
         update_display(zx.fb);
         end = get_absolute_time();
-        pin_state = !pin_state;
         printf("update_display(): %llu us\n",(unsigned long long)end-start);
 
         // Handle key presses.
-        for (int j = 0; j < sizeof(key_map); j += 3)
-            if (gpio_get(key_map[j])) {
-                zx_key_down(&zx,key_map[j+1]);  // key
-                zx_key_down(&zx,key_map[j+2]);  // joystick
-            } else { 
-                zx_key_up(&zx,key_map[j+1]);
-                zx_key_up(&zx,key_map[j+2]);
+        for (int j = 0; ;j += 3) {
+            if (keymap[j] == KEY_END) {
+                // End of keymap reached.
+                break;
+            } else if(keymap[j] == PRESS_AT_TICK &&
+                      keymap[j+1] == ticks ||
+                      keymap[j+1] == (ticks-1))
+            {
+                // In the tick specified by the user, we press the key.
+                // The next tick we release it.
+                if (keymap[j+1] == ticks) {
+                    zx_key_down(&zx,keymap[j+2]);
+                } else {
+                    zx_key_up(&zx,keymap[j+2]);
+                }
+            } else {
+                // Map the GPIO status to the ZX Spectrum keyboard
+                // registers.
+                if (gpio_get(keymap[j])) {
+                    zx_key_down(&zx,keymap[j+1]);
+                    zx_key_down(&zx,keymap[j+2]);
+                } else { 
+                    zx_key_up(&zx,keymap[j+1]);
+                    zx_key_up(&zx,keymap[j+2]);
+                }
             }
+        }
 
-        // Flash access.
+        // Flash access test.
         uint32_t *p = (uint32_t*) 0x10000000;
         printf("Flash: %lu %lu %lu\n", p[0], p[1], p[2]);
+        ticks++;
     }
 }
