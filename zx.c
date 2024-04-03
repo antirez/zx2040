@@ -34,6 +34,22 @@ static uint32_t zxpalette[16] = {
     0xFFFFFF,     // bright white
 };
 
+/* =============================== Games list =============================== */
+
+// Games on the flash memory. Check under the games directory for the
+// script that loads the Z80 image files into the flash memory.
+struct game_entry {
+    const char *name;
+    void *addr;         // Address in the flash memory.
+    size_t size;        // Length in bytes.
+    const uint8_t *map; // Keyboard mapping to use. See keys_config.h.
+} games_table[] = {
+    {"Jetpac", (void*)0x1007f100, 10848, keymap_default},
+    {"Bombjack", (void*)0x10081b60, 40918, keymap_bombjack},
+    {"Thrust", (void*)0x1008bb36, 33938, keymap_thrust},
+    {NULL,0,0,NULL} // Terminator.
+};
+
 /* ========================== Global state and defines ====================== */
 
 // We are not able to reach 30FPS, but still this is a good amount of
@@ -49,6 +65,9 @@ static zx_t zx; // The emulator state.
 // flash memory to be accessed without issues.
 uint32_t BASE_CLOCK = 280000;
 uint32_t EMU_CLOCK = 400000;
+
+// Keymap in use right now. Modified by load_game().
+const uint8_t *CurrentKeymap = keymap_default;
 
 /* =========================== Emulator implementation ====================== */
 
@@ -113,16 +132,14 @@ void handle_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks) {
     }
 }
 
-int main() {
+// Initialize the Pico and the Spectrum emulator.
+void init_emulator(void) {
     // Overclocking
     vreg_set_voltage(VREG_VOLTAGE_1_30);
     set_sys_clock_khz(BASE_CLOCK, true);
 
     // Pico Init
     stdio_init_all();
-    const uint LED_PIN = PICO_DEFAULT_LED_PIN;
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
 
     // Display initialization
     st77xx_init();
@@ -142,33 +159,29 @@ int main() {
     zx_desc.audio.sample_rate = 0;
     zx_desc.roms.zx48k.ptr = dump_amstrad_zx48k_bin;
     zx_desc.roms.zx48k.size = sizeof(dump_amstrad_zx48k_bin);
-
     zx_init(&zx, &zx_desc);
-    const uint8_t *keymap = keymap_default;
+}
 
-    // Load game
-    #if 1
-    // Jetpac
-     chips_range_t prg_data = {.ptr=(void*)0x1007f100, .size=10848};
-     keymap = keymap_default;
+/* Load the specified game ID. The ID is just the index in the
+ * games table. As a side effect, sets the keymap. */
+void load_game(int game_id) {
+    struct game_entry *g = &games_table[game_id];
+    chips_range_t r = {.ptr=g->addr, .size=g->size};
+    CurrentKeymap = g->map;
+    zx_quickload(&zx, r);
+}
 
-    // Bombjack
-    // chips_range_t prg_data = {.ptr=(void*)0x10081b60, .size=40918};
-    // keymap = keymap_bombjack;
-
-    // Thrust
-    // chips_range_t prg_data = {.ptr=(void*)0x1008bb36, .size=33938};
-    // keymap = keymap_thrust;
-
-    zx_quickload(&zx, prg_data);
-    #endif
+int main() {
+    init_emulator();
+    load_game(0);
 
     uint32_t ticks = 0;
     while (true) {
         absolute_time_t start, end;
 
-        handle_key_press(&zx, keymap, ticks);
+        handle_key_press(&zx, CurrentKeymap, ticks);
 
+        // Run the Spectrum VM for a few ticks.
         set_sys_clock_khz(EMU_CLOCK, true); sleep_us(50);
         start = get_absolute_time();
         zx_exec(&zx, FRAME_USEC);
@@ -176,14 +189,12 @@ int main() {
         printf("zx_exec(): %llu us\n",(unsigned long long)end-start);
         set_sys_clock_khz(BASE_CLOCK, true); sleep_us(50);
 
+        // Update the display with the current CRT image.
         start = get_absolute_time();
         update_display(zx.fb);
         end = get_absolute_time();
         printf("update_display(): %llu us\n",(unsigned long long)end-start);
 
-        // Flash access test.
-        uint32_t *p = (uint32_t*) 0x10000000;
-        printf("Flash: %lu %lu %lu\n", p[0], p[1], p[2]);
         ticks++;
     }
 }
