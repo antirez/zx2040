@@ -56,6 +56,39 @@ void update_display(uint8_t *crt) {
     }
 }
 
+// This function maps GPIO state to the Spectrum keyboard registers.
+// Other than that, certain keys are pressed when a given frame is
+// reached, in order to enable the joystick or things like that.
+void handle_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks) {
+    // Handle key presses.
+    for (int j = 0; ;j += 3) {
+        if (keymap[j] == KEY_END) {
+            // End of keymap reached.
+            break;
+        } else if((keymap[j] == PRESS_AT_TICK ||
+                   keymap[j] == RELEASE_AT_TICK) &&
+                  keymap[j+1] == ticks)
+        {
+            // Press/release keys when a given frame is reached.
+            if (keymap[j] == PRESS_AT_TICK) {
+                zx_key_down(zx,keymap[j+2]);
+            } else {
+                zx_key_up(zx,keymap[j+2]);
+            }
+        } else {
+            // Map the GPIO status to the ZX Spectrum keyboard
+            // registers.
+            if (gpio_get(keymap[j])) {
+                zx_key_down(zx,keymap[j+1]);
+                zx_key_down(zx,keymap[j+2]);
+            } else { 
+                zx_key_up(zx,keymap[j+1]);
+                zx_key_up(zx,keymap[j+2]);
+            }
+        }
+    }
+}
+
 int main() {
     uint32_t base_clock = 280000, emu_clock = 400000;
 
@@ -113,6 +146,8 @@ int main() {
     while (true) {
         absolute_time_t start, end;
 
+        handle_key_press(&zx, keymap, ticks);
+
         set_sys_clock_khz(emu_clock, true); sleep_us(50);
         start = get_absolute_time();
         zx_exec(&zx, FRAME_USEC);
@@ -124,35 +159,6 @@ int main() {
         update_display(zx.fb);
         end = get_absolute_time();
         printf("update_display(): %llu us\n",(unsigned long long)end-start);
-
-        // Handle key presses.
-        for (int j = 0; ;j += 3) {
-            if (keymap[j] == KEY_END) {
-                // End of keymap reached.
-                break;
-            } else if(keymap[j] == PRESS_AT_TICK &&
-                      keymap[j+1] == ticks ||
-                      keymap[j+1] == (ticks-1))
-            {
-                // In the tick specified by the user, we press the key.
-                // The next tick we release it.
-                if (keymap[j+1] == ticks) {
-                    zx_key_down(&zx,keymap[j+2]);
-                } else {
-                    zx_key_up(&zx,keymap[j+2]);
-                }
-            } else {
-                // Map the GPIO status to the ZX Spectrum keyboard
-                // registers.
-                if (gpio_get(keymap[j])) {
-                    zx_key_down(&zx,keymap[j+1]);
-                    zx_key_down(&zx,keymap[j+2]);
-                } else { 
-                    zx_key_up(&zx,keymap[j+1]);
-                    zx_key_up(&zx,keymap[j+2]);
-                }
-            }
-        }
 
         // Flash access test.
         uint32_t *p = (uint32_t*) 0x10000000;

@@ -21,8 +21,9 @@
 //
 // Just specify PRESS_AT_TICK as pin, then the frame number, and
 // finally the key.
-#define PRESS_AT_TICK 0xfe
-#define KEY_END       0xff // This just marks the end of the key map.
+#define PRESS_AT_TICK   0xfe // Press at the specified frame.
+#define RELEASE_AT_TICK 0xfd // Release at the specified frame.
+#define KEY_END         0xff // This just marks the end of the key map.
 
 /* Each row is: pin, keycode_1, keycode_2.
  *
@@ -64,5 +65,6 @@ const uint8_t keymap_thrust[] = {
     KEY_DOWN, 'm', KEMPTON_DOWN,
     KEY_UP, 'p', KEMPTON_UP,
     PRESS_AT_TICK, 10, 'n', // Do you want to redefine the keys? [N]o.
+    RELEASE_AT_TICK, 11, 'n',
     KEY_END, 0, 0,
 };
