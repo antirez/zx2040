@@ -362,18 +362,40 @@ void st77xx_pixel_rgb(uint16_t x, uint16_t y, uint32_t rgb) {
     st77xx_pixel(x,y,rgb565);
 }
 
-void st77xx_fill(uint16_t c) {
-    const unsigned int buflen = 256;
+void st77xx_fill_box(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t c) {
+    unsigned int buflen = 256;
     uint16_t buf[buflen];
-    uint32_t left = st77_width*st77_height;
+    uint32_t left = w*h;
+
+    // Crop to visible display area.
+    uint32_t x2 = x+w-1;
+    uint32_t y2 = y+h-1;
+    if (x2 >= st77_width) {
+        if (x >= st77_width) return;
+        x2 = st77_width-1;
+    }
+    if (y2 >= st77_height) {
+        if (y >= st77_height) return;
+        y2 = st77_height-1;
+    }
+
+    // Prefill buffer.
+    if (left < buflen) buflen = left;
     for (int j = 0; j < buflen; j++) buf[j] = c;
 
-    st77xx_setwin(0,0,st77_width-1,st77_height-1);
+    // Transfer buffer-length data at time until we can.
+    st77xx_setwin(x,y,x+w-1,y+h-1);
     while(left >= buflen) {
         st77xx_data(buf,buflen*2);
         left -= buflen;
     }
+
+    // Handle the reminder with a single write.
     if (left > 0) st77xx_data(buf,left*2);
+}
+
+void st77xx_fill(uint16_t c) {
+    st77xx_fill_box(0,0,st77_width,st77_height,c);
 }
 
 void st77xx_update(uint16_t *fb) {

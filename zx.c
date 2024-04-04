@@ -76,15 +76,16 @@ static struct emustate {
 
 /* ========================== Emulator user interface ======================= */
 
+// Draw a character on the screen.
+// We use the font in the Spectrum ROM to avoid providing one.
 void draw_char(uint16_t px, uint16_t py, uint8_t c, uint16_t color) {
-    c -= 0x20;
-    // We use the font in the Spectrum ROM to avoid providing one.
+    c -= 0x20; // The Spectrum ROM font starts from ASCII 0x20 char.
     uint8_t *font = dump_amstrad_zx48k_bin+0x3D00;
     for (int y = 0; y < 8; y++) {
         uint32_t row = font[c*8+y];
         for (int x = 0; x < 8; x++) {
             if (row & 0x80)
-                st77xx_pixel(px+x,py+y,color);
+                st77xx_fill_box(px+x*2,py+y*2,2,2,color);
             row <<= 1;
         }
     }
@@ -94,7 +95,7 @@ void draw_string(uint16_t px, uint16_t py, const char *s, uint16_t color) {
     while (*s) {
         draw_char(px,py,s[0],color);
         s++;
-        px += 8;
+        px += 16;
     }
 }
 
