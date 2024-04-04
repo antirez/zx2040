@@ -57,17 +57,50 @@ struct game_entry {
 // so to do this too often it's not a great idea.
 #define FRAME_USEC (33333)
 
-static zx_t zx; // The emulator state.
+static struct emustate {
+    zx_t zx; // The emulator state.
 
-// We switch betweent wo clocks: one is selected just for zx_exec(), that
-// is the most speed critical code path. For all the other code execution
-// we stay to a lower overclocking mode that is low enough to allow the
-// flash memory to be accessed without issues.
-uint32_t BASE_CLOCK = 280000;
-uint32_t EMU_CLOCK = 400000;
+    // We switch betweent wo clocks: one is selected just for zx_exec(), that
+    // is the most speed critical code path. For all the other code execution
+    // we stay to a lower overclocking mode that is low enough to allow the
+    // flash memory to be accessed without issues.
+    uint32_t base_clock;
+    uint32_t emu_clock;
 
-// Keymap in use right now. Modified by load_game().
-const uint8_t *CurrentKeymap = keymap_default;
+    // Keymap in use right now. Modified by load_game().
+    const uint8_t *CurrentKeymap;
+
+    // Is the game selection / config menu shown?
+    int menu_active;
+} EMU;
+
+/* ========================== Emulator user interface ======================= */
+
+void draw_char(uint16_t px, uint16_t py, uint8_t c, uint16_t color) {
+    c -= 0x20;
+    // We use the font in the Spectrum ROM to avoid providing one.
+    uint8_t *font = dump_amstrad_zx48k_bin+0x3D00;
+    for (int y = 0; y < 8; y++) {
+        uint32_t row = font[c*8+y];
+        for (int x = 0; x < 8; x++) {
+            if (row & 0x80)
+                st77xx_pixel(px+x,py+y,color);
+            row <<= 1;
+        }
+    }
+}
+
+void draw_string(uint16_t px, uint16_t py, const char *s, uint16_t color) {
+    while (*s) {
+        draw_char(px,py,s[0],color);
+        s++;
+        px += 8;
+    }
+}
+
+void draw_menu_ui(void) {
+    draw_string(10,10,"This is just a test!",zxpalette[2]);
+}
 
 /* =========================== Emulator implementation ====================== */
 
@@ -134,9 +167,15 @@ void handle_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks) {
 
 // Initialize the Pico and the Spectrum emulator.
 void init_emulator(void) {
+    // Set default configuration.
+    EMU.menu_active = 1;
+    EMU.base_clock = 280000;
+    EMU.emu_clock = 400000;
+    EMU.CurrentKeymap = keymap_default;
+
     // Overclocking
     vreg_set_voltage(VREG_VOLTAGE_1_30);
-    set_sys_clock_khz(BASE_CLOCK, true);
+    set_sys_clock_khz(EMU.base_clock, true);
 
     // Pico Init
     stdio_init_all();
@@ -159,7 +198,7 @@ void init_emulator(void) {
     zx_desc.audio.sample_rate = 0;
     zx_desc.roms.zx48k.ptr = dump_amstrad_zx48k_bin;
     zx_desc.roms.zx48k.size = sizeof(dump_amstrad_zx48k_bin);
-    zx_init(&zx, &zx_desc);
+    zx_init(&EMU.zx, &zx_desc);
 }
 
 /* Load the specified game ID. The ID is just the index in the
@@ -167,33 +206,38 @@ void init_emulator(void) {
 void load_game(int game_id) {
     struct game_entry *g = &games_table[game_id];
     chips_range_t r = {.ptr=g->addr, .size=g->size};
-    CurrentKeymap = g->map;
-    zx_quickload(&zx, r);
+    EMU.CurrentKeymap = g->map;
+    zx_quickload(&EMU.zx, r);
 }
 
 int main() {
     init_emulator();
-    load_game(0);
+    load_game(1);
 
     uint32_t ticks = 0;
     while (true) {
         absolute_time_t start, end;
 
-        handle_key_press(&zx, CurrentKeymap, ticks);
+        handle_key_press(&EMU.zx, EMU.CurrentKeymap, ticks);
 
         // Run the Spectrum VM for a few ticks.
-        set_sys_clock_khz(EMU_CLOCK, true); sleep_us(50);
+        set_sys_clock_khz(EMU.emu_clock, true); sleep_us(50);
         start = get_absolute_time();
-        zx_exec(&zx, FRAME_USEC);
+        zx_exec(&EMU.zx, FRAME_USEC);
         end = get_absolute_time();
         printf("zx_exec(): %llu us\n",(unsigned long long)end-start);
-        set_sys_clock_khz(BASE_CLOCK, true); sleep_us(50);
+        set_sys_clock_khz(EMU.base_clock, true); sleep_us(50);
 
         // Update the display with the current CRT image.
         start = get_absolute_time();
-        update_display(zx.fb);
+        update_display(EMU.zx.fb);
         end = get_absolute_time();
         printf("update_display(): %llu us\n",(unsigned long long)end-start);
+
+        // Handle the menu.
+        if (EMU.menu_active) {
+            draw_menu_ui();
+        }
 
         ticks++;
     }
