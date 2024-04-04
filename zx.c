@@ -34,6 +34,8 @@ static uint32_t zxpalette[16] = {
     0xFFFFFF,     // bright white
 };
 
+void load_game(int game_id);
+
 /* =============================== Games list =============================== */
 
 // Games on the flash memory. Check under the games directory for the
@@ -47,7 +49,7 @@ struct game_entry {
     {"Jetpac", (void*)0x1007f100, 10848, keymap_default},
     {"Bombjack", (void*)0x10081b60, 40918, keymap_bombjack},
     {"Thrust", (void*)0x1008bb36, 33938, keymap_thrust},
-    {NULL,0,0,NULL} // Terminator.
+    {"Loderunner", (void*)0x10093fc8, 32181, keymap_loderunner},
 };
 
 /* ========================== Global state and defines ====================== */
@@ -67,40 +69,111 @@ static struct emustate {
     uint32_t base_clock;
     uint32_t emu_clock;
 
+    uint32_t tick; // Frame number since last game load.
+
     // Keymap in use right now. Modified by load_game().
-    const uint8_t *CurrentKeymap;
+    const uint8_t *current_keymap;
 
     // Is the game selection / config menu shown?
     int menu_active;
+    int current_game;
 } EMU;
 
 /* ========================== Emulator user interface ======================= */
 
+// This function writes a box (with the specified border, if given) directly
+// inside the ZX Spectrum CRT framebuffer. We use this primitive to draw our
+// UI, this way when we refresh the emulator framebuffer copying it to our
+// phisical display, the UI is also rendered.
+//
+// bcolor and color are from 0 to 15, and use the Spectrum palette (sorry :D).
+// bcolor is the color of the border. If you don't want a border, just use
+// bcolor the same as color.
+void ui_fill_box(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t color, uint8_t bcolor) {
+    uint16_t x2 = x+width-1;
+    uint16_t y2 = y+height-1;
+    if (x >= 320) return;
+    if (y >= 256) return;
+    if (x2 >= 320) x2 = 319;
+    if (y2 >= 256) y2 = 255;
+
+    uint8_t *crt = EMU.zx.fb;
+    for (int py = y; py <= y2; py++) {
+        for (int px = x; px <= x2; px++) {
+            uint8_t *p = crt + py*160 + (px>>1);
+            // Border or inside?
+            uint8_t c = (px==x || px==x2 || py==y || py==y2) ? bcolor : color;
+
+            // CRT FB is 4 bit per pixel.
+            if (px&1)
+                *p = (*p&0xf0) | c;
+            else
+                *p = (*p&0x0f) | (c<<4);
+        }
+    }
+}
+
 // Draw a character on the screen.
 // We use the font in the Spectrum ROM to avoid providing one.
-void draw_char(uint16_t px, uint16_t py, uint8_t c, uint16_t color) {
+void ui_draw_char(uint16_t px, uint16_t py, uint8_t c, uint8_t color) {
     c -= 0x20; // The Spectrum ROM font starts from ASCII 0x20 char.
     uint8_t *font = dump_amstrad_zx48k_bin+0x3D00;
     for (int y = 0; y < 8; y++) {
         uint32_t row = font[c*8+y];
         for (int x = 0; x < 8; x++) {
             if (row & 0x80)
-                st77xx_fill_box(px+x*2,py+y*2,2,2,color);
+                ui_fill_box(px+x*2,py+y*2,2,2,color,color);
             row <<= 1;
         }
     }
 }
 
-void draw_string(uint16_t px, uint16_t py, const char *s, uint16_t color) {
+// Draw the string 's' using the ROM font by calling ui_draw_char().
+void ui_draw_string(uint16_t px, uint16_t py, const char *s, uint8_t color) {
     while (*s) {
-        draw_char(px,py,s[0],color);
+        ui_draw_char(px,py,s[0],color);
         s++;
         px += 16;
     }
 }
 
-void draw_menu_ui(void) {
-    draw_string(10,10,"This is just a test!",zxpalette[2]);
+void ui_change_game(int dir) {
+    int num_games = sizeof(games_table)/sizeof(games_table[0]);
+    EMU.current_game += dir;
+    if (EMU.current_game == -1) {
+        EMU.current_game = num_games-1;
+    } else if (EMU.current_game == num_games) {
+        EMU.current_game = 0;
+    }
+    load_game(EMU.current_game);
+}
+
+// Called when the UI is active. Handle the key presses needed to select
+// the game and change the overclock.
+void ui_handle_key_press(void) {
+    const uint8_t *km = keymap_default;
+
+    int event = -1;
+    for (int j = 0; ;j += 3) {
+        if (gpio_get(km[j])) {
+            event = km[j+2];
+            break;
+        }
+    }
+    if (event == -1) return; // No key pressed right now.
+
+    switch(event) {
+    case KEMPSTONE_UP: ui_change_game(-1); break;
+    case KEMPSTONE_DOWN: ui_change_game(1); break;
+    case KEMPSTONE_FIRE:
+        load_game(EMU.current_game);
+        EMU.menu_active = 0;
+        break;
+    }
+}
+
+void ui_draw_menu(void) {
+    ui_draw_string(10,10,games_table[EMU.current_game].name,2);
 }
 
 /* =========================== Emulator implementation ====================== */
@@ -136,7 +209,7 @@ void update_display(uint8_t *crt) {
 // This function maps GPIO state to the Spectrum keyboard registers.
 // Other than that, certain keys are pressed when a given frame is
 // reached, in order to enable the joystick or things like that.
-void handle_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks) {
+void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks) {
     // Handle key presses.
     for (int j = 0; ;j += 3) {
         if (keymap[j] == KEY_END) {
@@ -172,7 +245,9 @@ void init_emulator(void) {
     EMU.menu_active = 1;
     EMU.base_clock = 280000;
     EMU.emu_clock = 400000;
-    EMU.CurrentKeymap = keymap_default;
+    EMU.tick = 0;
+    EMU.current_keymap = keymap_default;
+    EMU.current_game = 0;
 
     // Overclocking
     vreg_set_voltage(VREG_VOLTAGE_1_30);
@@ -207,19 +282,26 @@ void init_emulator(void) {
 void load_game(int game_id) {
     struct game_entry *g = &games_table[game_id];
     chips_range_t r = {.ptr=g->addr, .size=g->size};
-    EMU.CurrentKeymap = g->map;
+    EMU.current_keymap = g->map;
+    EMU.tick = 0;
     zx_quickload(&EMU.zx, r);
 }
 
 int main() {
     init_emulator();
-    load_game(1);
+    load_game(EMU.current_game);
 
-    uint32_t ticks = 0;
     while (true) {
         absolute_time_t start, end;
 
-        handle_key_press(&EMU.zx, EMU.CurrentKeymap, ticks);
+        // Handle key presses on the phisical device. Either translate
+        // them to Spectrum keypresses, or if the user interface is
+        // active, pass it to the UI handler.
+        if (EMU.menu_active) {
+            ui_handle_key_press();
+        } else {
+            handle_zx_key_press(&EMU.zx, EMU.current_keymap, EMU.tick);
+        }
 
         // Run the Spectrum VM for a few ticks.
         set_sys_clock_khz(EMU.emu_clock, true); sleep_us(50);
@@ -229,17 +311,21 @@ int main() {
         printf("zx_exec(): %llu us\n",(unsigned long long)end-start);
         set_sys_clock_khz(EMU.base_clock, true); sleep_us(50);
 
+        // Handle the menu.
+        if (EMU.menu_active) {
+            ui_draw_menu();
+        }
+
+        char buf[32];
+        snprintf(buf,sizeof(buf),"%d",(int)EMU.tick);
+        ui_draw_string(10,10,buf,3);
+
         // Update the display with the current CRT image.
         start = get_absolute_time();
         update_display(EMU.zx.fb);
         end = get_absolute_time();
         printf("update_display(): %llu us\n",(unsigned long long)end-start);
 
-        // Handle the menu.
-        if (EMU.menu_active) {
-            draw_menu_ui();
-        }
-
-        ticks++;
+        EMU.tick++;
     }
 }
