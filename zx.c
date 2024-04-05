@@ -266,7 +266,10 @@ void update_display(uint8_t *crt) {
 // This function maps GPIO state to the Spectrum keyboard registers.
 // Other than that, certain keys are pressed when a given frame is
 // reached, in order to enable the joystick or things like that.
-void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks) {
+#define HANDLE_KEYPRESS_MACRO 1
+#define HANDLE_KEYPRESS_PIN 2
+#define HANDLE_KEYPRESS_ALL (HANDLE_KEYPRESS_MACRO|HANDLE_KEYPRESS_PIN)
+void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int flags) {
     // This 128 bit bitmap remembers what keys we put down
     // during this call. This is useful as sometimes key maps
     // have multiple keys mapped to the same Spectrum key, and if
@@ -280,10 +283,11 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks) {
         if (keymap[j] == KEY_END) {
             // End of keymap reached.
             break;
-        } else if((keymap[j] == PRESS_AT_TICK ||
-                   keymap[j] == RELEASE_AT_TICK) &&
+        } else if ((keymap[j] == PRESS_AT_TICK ||
+                    keymap[j] == RELEASE_AT_TICK) &&
                   keymap[j+1] == ticks)
         {
+            if (!(flags & HANDLE_KEYPRESS_MACRO)) continue;
             // Press/release keys when a given frame is reached.
             if (keymap[j] == PRESS_AT_TICK) {
                 zx_key_down(zx,keymap[j+2]);
@@ -291,6 +295,7 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks) {
                 zx_key_up(zx,keymap[j+2]);
             }
         } else {
+            if (!(flags & HANDLE_KEYPRESS_PIN)) continue;
             // Map the GPIO status to the ZX Spectrum keyboard
             // registers.
             if (gpio_get(keymap[j])) {
@@ -367,14 +372,17 @@ int main() {
         // active, pass it to the UI handler.
         if (EMU.menu_active) {
             ui_handle_key_press();
-        } else {
-            // For the first frames don't process keys: the user
-            // just pressed fire to select the game, and we don't
-            // want to trigger anything on the emulator, so that
-            // keymaps with macros (to seelct joystick and such) will
-            // execute cleanly.
-            if (EMU.tick > 10)
-                handle_zx_key_press(&EMU.zx, EMU.current_keymap, EMU.tick);
+        }
+        // For the first frames don't process keys: the user
+        // just pressed fire to select the game, and we don't
+        // want to trigger anything on the emulator, so that
+        // keymaps with macros (to seelct joystick and such) will
+        // execute cleanly.
+        if (EMU.tick > 10) {
+            // If the game selection menu is active, we just handle
+            // automatic keypresses.
+            handle_zx_key_press(&EMU.zx, EMU.current_keymap, EMU.tick,
+                EMU.menu_active ? HANDLE_KEYPRESS_MACRO : HANDLE_KEYPRESS_ALL);
         }
 
         // Run the Spectrum VM for a few ticks.
@@ -397,7 +405,7 @@ int main() {
         #if DEBUG_MODE
         char buf[32];
         snprintf(buf,sizeof(buf),"%d",(int)EMU.tick);
-        ui_draw_string(st77_width-100,10,buf,3,2);
+        ui_draw_string(0,0,buf,3,2);
         #endif
 
         // Update the display with the current CRT image.

@@ -73,8 +73,8 @@ const uint8_t keymap_thrust[] = {
     KEY_FIRE, 'i', 'm',
     KEY_DOWN, 'm', KEMPSTONE_DOWN,
     KEY_UP, 'p', KEMPSTONE_UP,
-    PRESS_AT_TICK, 10, 'n', // Do you want to redefine the keys? [N]o.
-    RELEASE_AT_TICK, 11, 'n',
+    PRESS_AT_TICK, 20, 'n', // Do you want to redefine the keys? [N]o.
+    RELEASE_AT_TICK, 21, 'n',
     KEY_END, 0, 0,
 };
 
