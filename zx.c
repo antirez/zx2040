@@ -69,6 +69,7 @@ static struct emustate {
 
     // Is the game selection / config menu shown?
     int menu_active;
+    uint32_t menu_left_at_tick; // EMU.tick when the menu was closed.
     int current_game;
     // All our UI graphic primitives are automatically cropped
     // to the area selected by ui_set_crop_area().
@@ -189,8 +190,8 @@ void ui_handle_key_press(void) {
     case KEMPSTONE_UP: ui_change_game(-1); break;
     case KEMPSTONE_DOWN: ui_change_game(1); break;
     case KEMPSTONE_FIRE:
-        load_game(EMU.current_game);
         EMU.menu_active = 0;
+        EMU.menu_left_at_tick = EMU.tick;
         break;
     }
     last_key_accepted_time = now;
@@ -373,17 +374,13 @@ int main() {
         if (EMU.menu_active) {
             ui_handle_key_press();
         }
-        // For the first frames don't process keys: the user
-        // just pressed fire to select the game, and we don't
-        // want to trigger anything on the emulator, so that
-        // keymaps with macros (to seelct joystick and such) will
-        // execute cleanly.
-        if (EMU.tick > 10) {
-            // If the game selection menu is active, we just handle
-            // automatic keypresses.
-            handle_zx_key_press(&EMU.zx, EMU.current_keymap, EMU.tick,
-                EMU.menu_active ? HANDLE_KEYPRESS_MACRO : HANDLE_KEYPRESS_ALL);
-        }
+
+        // If the game selection menu is active or just dismissed, we
+        // just handle automatic keypresses.
+        int kflags = HANDLE_KEYPRESS_ALL;
+        if (EMU.menu_active || EMU.tick < EMU.menu_left_at_tick+10)
+            kflags = HANDLE_KEYPRESS_MACRO;
+        handle_zx_key_press(&EMU.zx, EMU.current_keymap, EMU.tick, kflags);
 
         // Run the Spectrum VM for a few ticks.
         set_sys_clock_khz(EMU.emu_clock, true); sleep_us(50);
