@@ -29,12 +29,28 @@
 // Default keymap, used in all the games where we
 // can select the joystick pressing one of
 // 1,2,3,4,5.
+// Actually normally it's better to write a game-specific map that
+// selects the joystick for the user on startup using PRESS_AT_TICK.
 const uint8_t keymap_default[] = {
     KEY_LEFT, '1', KEMPSTONE_LEFT,
     KEY_RIGHT, '2', KEMPSTONE_RIGHT,
     KEY_FIRE, '4', KEMPSTONE_FIRE,
     KEY_DOWN, '3', KEMPSTONE_DOWN,
     KEY_UP, '5', KEMPSTONE_UP,
+    KEY_END, 0, 0,
+};
+
+// Jetpack. Select joystick with 4 at startup. Down key does not block
+// but provides an up+fire combo which is useful to actually play the
+// game when keys are badly placed such as in the Pimoroni Tufty 2040.
+const uint8_t keymap_jetpac[] = {
+    KEY_LEFT, '1', KEMPSTONE_LEFT,
+    KEY_RIGHT, '2', KEMPSTONE_RIGHT,
+    KEY_FIRE, '4', KEMPSTONE_FIRE,
+    KEY_DOWN, KEMPSTONE_FIRE, KEMPSTONE_UP,
+    KEY_UP, '5', KEMPSTONE_UP,
+    PRESS_AT_TICK, 10, '4', // Select joystick.
+    RELEASE_AT_TICK, 11, '4',
     KEY_END, 0, 0,
 };
 

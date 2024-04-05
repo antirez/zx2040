@@ -49,12 +49,13 @@ struct game_entry {
     void *addr;         // Address in the flash memory.
     size_t size;        // Length in bytes.
     const uint8_t *map; // Keyboard mapping to use. See keys_config.h.
-} games_table[] = {
-    {"Jetpac", (void*)0x1007f100, 10848, keymap_default},
+} GamesTable[] = {
+    {"Jetpac", (void*)0x1007f100, 10848, keymap_jetpac},
     {"Bombjack", (void*)0x10081b60, 40918, keymap_bombjack},
     {"Thrust", (void*)0x1008bb36, 33938, keymap_thrust},
     {"Loderunner", (void*)0x10093fc8, 32181, keymap_loderunner},
 };
+#define GamesTableSize (sizeof(GamesTable)/sizeof(GamesTable[0]))
 
 /* ========================== Global state and defines ====================== */
 
@@ -81,9 +82,28 @@ static struct emustate {
     // Is the game selection / config menu shown?
     int menu_active;
     int current_game;
+    // All our UI graphic primitives are automatically cropped
+    // to the area selected by ui_set_crop_area().
+    uint16_t ui_crop_x1, ui_crop_x2, ui_crop_y1, ui_crop_y2;
 } EMU;
 
 /* ========================== Emulator user interface ======================= */
+
+// Set the draw window of the ui_* functions. This is useful in order
+// to limit drawing the menu inside its area, without doing too many
+// calculations about font sizes and such.
+void ui_set_crop_area(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2) {
+    EMU.ui_crop_x1 = x1;
+    EMU.ui_crop_x2 = x2;
+    EMU.ui_crop_y1 = y1;
+    EMU.ui_crop_y2 = y2;
+}
+
+// Allow to draw everywhere on the screen. Called after we finished
+// updating a specific area to restore the normal state.
+void ui_reset_crop_area(void) {
+    ui_set_crop_area(0,st77_width-1,0,st77_height-1);
+}
 
 // This function writes a box (with the specified border, if given) directly
 // inside the ZX Spectrum CRT framebuffer. We use this primitive to draw our
@@ -96,14 +116,15 @@ static struct emustate {
 void ui_fill_box(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t color, uint8_t bcolor) {
     uint16_t x2 = x+width-1;
     uint16_t y2 = y+height-1;
-    if (x >= 320) return;
-    if (y >= 256) return;
-    if (x2 >= 320) x2 = 319;
-    if (y2 >= 256) y2 = 255;
-
     uint8_t *crt = EMU.zx.fb;
     for (int py = y; py <= y2; py++) {
         for (int px = x; px <= x2; px++) {
+            // Don't draw outside the current mask.
+            if (px < EMU.ui_crop_x1 ||
+                px > EMU.ui_crop_x2 ||
+                py < EMU.ui_crop_y1 ||
+                py > EMU.ui_crop_y2) continue;
+
             uint8_t *p = crt + py*160 + (px>>1);
             // Border or inside?
             uint8_t c = (px==x || px==x2 || py==y || py==y2) ? bcolor : color;
@@ -119,34 +140,36 @@ void ui_fill_box(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_
 
 // Draw a character on the screen.
 // We use the font in the Spectrum ROM to avoid providing one.
-void ui_draw_char(uint16_t px, uint16_t py, uint8_t c, uint8_t color) {
+// Size is the size multiplier.
+void ui_draw_char(uint16_t px, uint16_t py, uint8_t c, uint8_t color, uint8_t size) {
     c -= 0x20; // The Spectrum ROM font starts from ASCII 0x20 char.
     uint8_t *font = dump_amstrad_zx48k_bin+0x3D00;
     for (int y = 0; y < 8; y++) {
         uint32_t row = font[c*8+y];
         for (int x = 0; x < 8; x++) {
             if (row & 0x80)
-                ui_fill_box(px+x*2,py+y*2,2,2,color,color);
+                ui_fill_box(px+x*size,py+y*size,size,size,color,color);
             row <<= 1;
         }
     }
 }
 
 // Draw the string 's' using the ROM font by calling ui_draw_char().
-void ui_draw_string(uint16_t px, uint16_t py, const char *s, uint8_t color) {
+// Size is the font size multiplier. 1 = 8x8 font, 2 = 16x16, ...
+void ui_draw_string(uint16_t px, uint16_t py, const char *s, uint8_t color, uint8_t size) {
     while (*s) {
-        ui_draw_char(px,py,s[0],color);
+        ui_draw_char(px,py,s[0],color,size);
         s++;
-        px += 16;
+        px += 8*size;
     }
 }
 
+// Load the prev/next game in the list (dir = -1 / 1).
 void ui_change_game(int dir) {
-    int num_games = sizeof(games_table)/sizeof(games_table[0]);
     EMU.current_game += dir;
     if (EMU.current_game == -1) {
-        EMU.current_game = num_games-1;
-    } else if (EMU.current_game == num_games) {
+        EMU.current_game = GamesTableSize-1;
+    } else if (EMU.current_game == GamesTableSize) {
         EMU.current_game = 0;
     }
     load_game(EMU.current_game);
@@ -187,7 +210,39 @@ void ui_handle_key_press(void) {
 
 // If the menu is active, draw it.
 void ui_draw_menu(void) {
-    ui_draw_string(10,10,games_table[EMU.current_game].name,2);
+    // Draw the menu in the right / top part of the screen.
+    int font_size = 2;
+    int menu_x = st77_width/2;
+    int menu_w = st77_width/2-5;
+    int menu_y = 10;
+    int menu_h = (st77_height/3*2); // Use 2/3 of height.
+    menu_h -= menu_h&(8*font_size-1); // Make multiple of font pixel size;
+    int vpad = 2;       // Vertical padding of text inside the box.
+    menu_h += vpad*2;   // Allow for pixels padding / top bottom.
+    int listlen = (menu_h-vpad*2)/(8*font_size); // Number of items we can list.
+
+    ui_fill_box(menu_x, menu_y, menu_w, menu_h, 0, 15);
+    ui_set_crop_area(menu_x+1,menu_x+menu_w-2,
+                     menu_y+1,menu_y+menu_h-2);
+
+    int count = 0;
+    int first_game = EMU.current_game - listlen;
+    if (first_game < 0) first_game = 0;
+    for (int j = first_game;; j++) {
+        if (j >= GamesTableSize || count >= listlen) break;
+        int color = 4;
+        // Highlight the currently selected game, with a box of the color
+        // of the font, and the black font (so basically the font is inverted).
+        if (j == EMU.current_game) {
+            ui_fill_box(menu_x+2,menu_y+2+count*(8*font_size),menu_w-2,
+                        font_size*8,color,color);
+            color = 0;
+        }
+        ui_draw_string(menu_x+2,menu_y+2+count*(8*font_size),   
+            GamesTable[j].name,color,font_size);
+        count++;
+    }
+    ui_reset_crop_area();
 }
 
 /* =========================== Emulator implementation ====================== */
@@ -224,7 +279,15 @@ void update_display(uint8_t *crt) {
 // Other than that, certain keys are pressed when a given frame is
 // reached, in order to enable the joystick or things like that.
 void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks) {
-    // Handle key presses.
+    // This 128 bit bitmap remembers what keys we put down
+    // during this call. This is useful as sometimes key maps
+    // have multiple keys mapped to the same Spectrum key, and if
+    // some phisical key put down some Spectrum key, we don't want
+    // a successive mapping to up it up.
+    uint64_t put_down[2] = {0,0};
+    #define put_down_set(keycode) put_down[keycode>>6] |= (1ULL<<(keycode&63))
+    #define put_down_get(keycode) (put_down[keycode>>6] & (1ULL<<(keycode&63)))
+
     for (int j = 0; ;j += 3) {
         if (keymap[j] == KEY_END) {
             // End of keymap reached.
@@ -243,11 +306,13 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks) {
             // Map the GPIO status to the ZX Spectrum keyboard
             // registers.
             if (gpio_get(keymap[j])) {
+                put_down_set(j+1);
+                put_down_set(j+2);
                 zx_key_down(zx,keymap[j+1]);
                 zx_key_down(zx,keymap[j+2]);
-            } else { 
-                zx_key_up(zx,keymap[j+1]);
-                zx_key_up(zx,keymap[j+2]);
+            } else {
+                if (!put_down_get(keymap[j+1])) zx_key_up(zx,keymap[j+1]);
+                if (!put_down_get(keymap[j+2])) zx_key_up(zx,keymap[j+2]);
             }
         }
     }
@@ -262,6 +327,7 @@ void init_emulator(void) {
     EMU.tick = 0;
     EMU.current_keymap = keymap_default;
     EMU.current_game = 0;
+    ui_reset_crop_area();
 
     // Overclocking
     vreg_set_voltage(VREG_VOLTAGE_1_30);
@@ -294,7 +360,7 @@ void init_emulator(void) {
 /* Load the specified game ID. The ID is just the index in the
  * games table. As a side effect, sets the keymap. */
 void load_game(int game_id) {
-    struct game_entry *g = &games_table[game_id];
+    struct game_entry *g = &GamesTable[game_id];
     chips_range_t r = {.ptr=g->addr, .size=g->size};
     EMU.current_keymap = g->map;
     EMU.tick = 0;
@@ -337,7 +403,7 @@ int main() {
         #if DEBUG_MODE
         char buf[32];
         snprintf(buf,sizeof(buf),"%d",(int)EMU.tick);
-        ui_draw_string(st77_width-100,10,buf,3);
+        ui_draw_string(st77_width-100,10,buf,3,2);
         #endif
 
         // Update the display with the current CRT image.
