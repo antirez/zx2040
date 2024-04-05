@@ -42,19 +42,7 @@ void load_game(int game_id);
 
 /* =============================== Games list =============================== */
 
-// Games on the flash memory. Check under the games directory for the
-// script that loads the Z80 image files into the flash memory.
-struct game_entry {
-    const char *name;
-    void *addr;         // Address in the flash memory.
-    size_t size;        // Length in bytes.
-    const uint8_t *map; // Keyboard mapping to use. See keys_config.h.
-} GamesTable[] = {
-    {"Jetpac", (void*)0x1007f100, 10848, keymap_jetpac},
-    {"Bombjack", (void*)0x10081b60, 40918, keymap_bombjack},
-    {"Thrust", (void*)0x1008bb36, 33938, keymap_thrust},
-    {"Loderunner", (void*)0x10093fc8, 32181, keymap_loderunner},
-};
+#include "games/games_list.h"
 #define GamesTableSize (sizeof(GamesTable)/sizeof(GamesTable[0]))
 
 /* ========================== Global state and defines ====================== */
