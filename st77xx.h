@@ -5,8 +5,6 @@
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
 
-#include "st77xx_config.h"
-
 // Undefine this to use big banging to implement the parallel protocol.
 // Otherwise PIO with DMA will be used. Bitbanging is slower but allows
 // to drive the display if all the PIO state machines or the PIO FIFO

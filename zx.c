@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/vreg.h"
+
+#include "device_config.h" // Hardware-specific defines for ST77 and keys.
 #include "st77xx.h"
-#include "keys_config.h"
+#include "keymaps.h"
 
 #define CHIPS_IMPL
 #include "chips_common.h"
@@ -13,6 +15,8 @@
 #include "mem.h"
 #include "zx.h"
 #include "zx-roms.h"
+
+// #define DEBUG_MODE
 
 /* Modified for even RGB565 conversion. */
 static uint32_t zxpalette[16] = {
@@ -150,11 +154,19 @@ void ui_change_game(int dir) {
 
 // Called when the UI is active. Handle the key presses needed to select
 // the game and change the overclock.
+#define UI_DEBOUNCING_TIME 100000
 void ui_handle_key_press(void) {
     const uint8_t *km = keymap_default;
+    static absolute_time_t last_key_accepted_time = 0;
+
+    // Debouncing
+    absolute_time_t now = get_absolute_time();
+    if (now - last_key_accepted_time < UI_DEBOUNCING_TIME) return;
 
     int event = -1;
     for (int j = 0; ;j += 3) {
+        if (km[j] == KEY_END) break;
+        if (km[j] >= 32) continue; // Skip special codes.
         if (gpio_get(km[j])) {
             event = km[j+2];
             break;
@@ -170,8 +182,10 @@ void ui_handle_key_press(void) {
         EMU.menu_active = 0;
         break;
     }
+    last_key_accepted_time = now;
 }
 
+// If the menu is active, draw it.
 void ui_draw_menu(void) {
     ui_draw_string(10,10,games_table[EMU.current_game].name,2);
 }
@@ -316,9 +330,15 @@ int main() {
             ui_draw_menu();
         }
 
+        // In debug mode, show the frame number. Useful in order to
+        // find the right timing for automatic key presses used in
+        // the key maps to select the joystick, skip splash screens
+        // and so forth.
+        #if DEBUG_MODE
         char buf[32];
         snprintf(buf,sizeof(buf),"%d",(int)EMU.tick);
-        ui_draw_string(10,10,buf,3);
+        ui_draw_string(st77_width-100,10,buf,3);
+        #endif
 
         // Update the display with the current CRT image.
         start = get_absolute_time();

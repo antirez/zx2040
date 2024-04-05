@@ -1,10 +1,3 @@
-// Pimoroni Tufty 2040 keys pins.
-#define KEY_A 7
-#define KEY_B 8
-#define KEY_C 9
-#define KEY_UP 22
-#define KEY_DOWN 6
-
 // Kempston joystick key codes.
 #define KEMPSTONE_FIRE 0x20
 #define KEMPSTONE_LEFT 0x08
@@ -37,9 +30,9 @@
 // can select the joystick pressing one of
 // 1,2,3,4,5.
 const uint8_t keymap_default[] = {
-    KEY_A, '1', KEMPSTONE_LEFT,
-    KEY_B, '2', KEMPSTONE_RIGHT,
-    KEY_C, '4', KEMPSTONE_FIRE,
+    KEY_LEFT, '1', KEMPSTONE_LEFT,
+    KEY_RIGHT, '2', KEMPSTONE_RIGHT,
+    KEY_FIRE, '4', KEMPSTONE_FIRE,
     KEY_DOWN, '3', KEMPSTONE_DOWN,
     KEY_UP, '5', KEMPSTONE_UP,
     KEY_END, 0, 0,
@@ -48,9 +41,9 @@ const uint8_t keymap_default[] = {
 // Bombjack.
 // Here we need to press 'p' to select the joystick.
 const uint8_t keymap_bombjack[] = {
-    KEY_A, '1', KEMPSTONE_LEFT,
-    KEY_B, '2', KEMPSTONE_RIGHT,
-    KEY_C, 'p', KEMPSTONE_UP,
+    KEY_LEFT, '1', KEMPSTONE_LEFT,
+    KEY_RIGHT, '2', KEMPSTONE_RIGHT,
+    KEY_FIRE, 'p', KEMPSTONE_UP,
     KEY_DOWN, 'p', KEMPSTONE_DOWN,
     KEY_UP, '5', KEMPSTONE_FIRE,
     KEY_END, 0, 0,
@@ -59,9 +52,9 @@ const uint8_t keymap_bombjack[] = {
 // Thrust.
 // Joystick not supported at all. Map to the default keys.
 const uint8_t keymap_thrust[] = {
-    KEY_A, 'a', KEMPSTONE_LEFT,
-    KEY_B, 's', KEMPSTONE_RIGHT,
-    KEY_C, 'i', 'm',
+    KEY_LEFT, 'a', KEMPSTONE_LEFT,
+    KEY_RIGHT, 's', KEMPSTONE_RIGHT,
+    KEY_FIRE, 'i', 'm',
     KEY_DOWN, 'm', KEMPSTONE_DOWN,
     KEY_UP, 'p', KEMPSTONE_UP,
     PRESS_AT_TICK, 10, 'n', // Do you want to redefine the keys? [N]o.
@@ -72,15 +65,15 @@ const uint8_t keymap_thrust[] = {
 // Loderunner.
 // Select joystick at startup.
 const uint8_t keymap_loderunner[] = {
-    KEY_A, '1', KEMPSTONE_LEFT,
-    KEY_B, '2', KEMPSTONE_RIGHT,
-    KEY_C, '0', KEMPSTONE_FIRE,
+    KEY_LEFT, '1', KEMPSTONE_LEFT,
+    KEY_RIGHT, '2', KEMPSTONE_RIGHT,
+    KEY_FIRE, '0', KEMPSTONE_FIRE,
     KEY_DOWN, '3', KEMPSTONE_DOWN,
     KEY_UP, '5', KEMPSTONE_UP,
     PRESS_AT_TICK, 20, '0', // Leave splash screen.
     RELEASE_AT_TICK, 21, '0',
-    PRESS_AT_TICK, 60, '2', // Select joystick.
-    RELEASE_AT_TICK, 61, '2',
+    PRESS_AT_TICK, 70, '2', // Select joystick.
+    RELEASE_AT_TICK, 71, '2',
     KEY_END, 0, 0,
 };
 

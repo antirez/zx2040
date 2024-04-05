@@ -1,5 +1,21 @@
-/* Make sure to uncomment only one of the following lines, to
- * select SPI or parallel-8 bus. */
+/* ============================= KEYS CONFIGURATION ==========================
+ * Here you need to define your Pico pins that will be associated to joystick
+ * movements.
+ */
+
+// Pimoroni Tufty 2040 keys pins.
+#define KEY_LEFT 7
+#define KEY_RIGHT 8
+#define KEY_FIRE 9
+#define KEY_UP 22
+#define KEY_DOWN 6
+
+/* ============================= DISPLAY CONFIGURATION =======================
+ * Your ST77xx display bus (SPI vs parallel), pins, rate, ...
+ */
+
+// Make sure to uncomment only one of the following lines, to select SPI or
+// parallel-8 bus.
 
 // #define st77_use_spi
 #define st77_use_parallel
