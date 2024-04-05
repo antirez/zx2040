@@ -93,3 +93,24 @@ const uint8_t keymap_loderunner[] = {
     KEY_END, 0, 0,
 };
 
+// IK+
+// Skip splash screen and credits.
+// Select joystick at startup.
+// Say "N" to second player.
+const uint8_t keymap_ik[] = {
+    KEY_LEFT, '1', KEMPSTONE_LEFT,
+    KEY_RIGHT, '2', KEMPSTONE_RIGHT,
+    KEY_FIRE, '5', KEMPSTONE_FIRE,
+    KEY_DOWN, '3', KEMPSTONE_DOWN,
+    KEY_UP, '4', KEMPSTONE_UP,
+    PRESS_AT_TICK, 20, '0', // Leave splash screen.
+    RELEASE_AT_TICK, 21, '0',
+    PRESS_AT_TICK, 30, '0', // Leave credits screen.
+    RELEASE_AT_TICK, 31, '0',
+    PRESS_AT_TICK, 40, '5', // Player 1 select joystick.
+    RELEASE_AT_TICK, 41, '5',
+    PRESS_AT_TICK, 50, 'n', // No player 2.
+    RELEASE_AT_TICK, 51, 'n',
+    KEY_END, 0, 0,
+};
+

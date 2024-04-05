@@ -7,7 +7,8 @@ struct game_entry {
     const uint8_t *map; // Keyboard mapping to use. See keys_config.h.
 } GamesTable[] = {
     {"Bombjack", (void*)0x1007f100, 40918, keymap_bombjack},
-    {"Jetpac", (void*)0x100890d6, 10848, keymap_jetpac},
-    {"Loderunner", (void*)0x1008bb36, 32181, keymap_loderunner},
-    {"Thrust", (void*)0x100938eb, 33938, keymap_thrust},
+    {"Ik", (void*)0x100890d6, 42854, keymap_ik},
+    {"Jetpac", (void*)0x1009383c, 10848, keymap_jetpac},
+    {"Loderunner", (void*)0x1009629c, 32181, keymap_loderunner},
+    {"Thrust", (void*)0x1009e051, 33938, keymap_thrust},
 };

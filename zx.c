@@ -16,7 +16,7 @@
 #include "zx.h"
 #include "zx-roms.h"
 
-// #define DEBUG_MODE
+#define DEBUG_MODE 1
 
 /* Modified for even RGB565 conversion. */
 static uint32_t zxpalette[16] = {
@@ -368,7 +368,13 @@ int main() {
         if (EMU.menu_active) {
             ui_handle_key_press();
         } else {
-            handle_zx_key_press(&EMU.zx, EMU.current_keymap, EMU.tick);
+            // For the first frames don't process keys: the user
+            // just pressed fire to select the game, and we don't
+            // want to trigger anything on the emulator, so that
+            // keymaps with macros (to seelct joystick and such) will
+            // execute cleanly.
+            if (EMU.tick > 10)
+                handle_zx_key_press(&EMU.zx, EMU.current_keymap, EMU.tick);
         }
 
         // Run the Spectrum VM for a few ticks.
