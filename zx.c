@@ -306,8 +306,8 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks) {
             // Map the GPIO status to the ZX Spectrum keyboard
             // registers.
             if (gpio_get(keymap[j])) {
-                put_down_set(j+1);
-                put_down_set(j+2);
+                put_down_set(keymap[j+1]);
+                put_down_set(keymap[j+2]);
                 zx_key_down(zx,keymap[j+1]);
                 zx_key_down(zx,keymap[j+2]);
             } else {
