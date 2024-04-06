@@ -53,7 +53,8 @@ void load_game(int game_id);
 #define FRAME_USEC (33333)
 
 static struct emustate {
-    zx_t zx; // The emulator state.
+    zx_t zx;    // The emulator state.
+    int debug;  // Debugging mode
 
     // We switch betweent wo clocks: one is selected just for zx_exec(), that
     // is the most speed critical code path. For all the other code execution
@@ -310,11 +311,27 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int fl
             }
         }
     }
+
+    // Detect long press of left+right to return back in
+    // game selection mode.
+    {
+        #define LEFT_RIGHT_LONG_PRESS_FRAMES 30
+        static int left_right_frames = 0;
+        if (gpio_get(KEY_LEFT) && gpio_get(KEY_RIGHT)) {
+            left_right_frames++;
+            if (left_right_frames == LEFT_RIGHT_LONG_PRESS_FRAMES)
+                EMU.menu_active = 1;
+        } else {
+            left_right_frames = 0;
+        }
+
+    }
 }
 
 // Initialize the Pico and the Spectrum emulator.
 void init_emulator(void) {
     // Set default configuration.
+    EMU.debug = 0;
     EMU.menu_active = 1;
     EMU.base_clock = 280000;
     EMU.emu_clock = 400000;
@@ -345,6 +362,10 @@ void init_emulator(void) {
     gpio_set_dir_in_masked(
         (1<<KEY_LEFT) | (1<<KEY_RIGHT) | (1<<KEY_UP) | (1<<KEY_DOWN) |
         (1<<KEY_FIRE));
+
+    // Enter special mode depending on key presses during power up.
+    if (gpio_get(KEY_LEFT)) EMU.debug = 1; // Debugging mode.
+    if (gpio_get(KEY_RIGHT)) EMU.emu_clock = 300000; // Less overclock.
 
     // Convert palette to RGB565
     for (int j = 0; j < 16; j++)
@@ -406,14 +427,12 @@ int main() {
         }
 
         // In debug mode, show the frame number. Useful in order to
-        // find the right timing for automatic key presses used in
-        // the key maps to select the joystick, skip splash screens
-        // and so forth.
-        #if DEBUG_MODE
-        char buf[32];
-        snprintf(buf,sizeof(buf),"%d",(int)EMU.tick);
-        ui_draw_string(0,0,buf,3,2);
-        #endif
+        // find the right timing for automatic key presses.
+        if (EMU.debug) {
+            char buf[32];
+            snprintf(buf,sizeof(buf),"%d",(int)EMU.tick);
+            ui_draw_string(0,0,buf,3,2);
+        }
 
         // Update the display with the current CRT image.
         start = get_absolute_time();
