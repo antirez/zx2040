@@ -1,7 +1,5 @@
 #include "hardware/spi.h"
-#include "hardware/dma.h"
 #include "hardware/gpio.h"
-#include "hardware/pio.h"
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
 
@@ -10,6 +8,13 @@
 // to drive the display if all the PIO state machines or the PIO FIFO
 // are used for other goals.
 #define st77_parallel_bb
+
+#ifndef st77_parallel_bb
+#include "hardware/dma.h"
+#include "hardware/pio.h"
+#endif
+
+void st77xx_fill(uint16_t c);
 
 #ifdef st77_use_spi
 // Bus setup: SPI version. Very straightforward.
@@ -285,13 +290,6 @@ void st77xx_init(void) {
     st77xx_init_parallel();
     #endif
 
-    // Power on the backlight
-    if (st77_bl != -1) {
-        gpio_init(st77_bl);
-        gpio_set_dir(st77_bl,GPIO_OUT);
-        gpio_put(st77_bl,1);
-    }
-
     // Display initialization
     if (st77_rst != -1) {
         gpio_put(st77_rst,1); sleep_ms(50);
@@ -320,8 +318,20 @@ void st77xx_init(void) {
     st77xx_cmd(0x13); // Normal mode on
     sleep_ms(10);
 
+    // At startup the display RAM is full of random pixel colors,
+    // it's not nice to see. Fill the screen with black pixels
+    // before showing the content to the user.
+    st77xx_fill(0);
+
     st77xx_cmd(0x29); // Display on
     sleep_ms(500);
+
+    // Power on the backlight
+    if (st77_bl != -1) {
+        gpio_init(st77_bl);
+        gpio_set_dir(st77_bl,GPIO_OUT);
+        gpio_put(st77_bl,1);
+    }
 }
 
 void st77xx_setwin(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
