@@ -340,18 +340,20 @@ void init_emulator(void) {
     EMU.current_game = 0;
     ui_reset_crop_area();
 
-    // Overclocking
-    vreg_set_voltage(VREG_VOLTAGE_1_30);
-    set_sys_clock_khz(EMU.base_clock, true);
-
     // Pico Init
     stdio_init_all();
 
-    // Display initialization
+    // Display initialization. Show a pattern before overclocking.
+    // If users are stuck with four colored squares we know what's up.
     st77xx_init();
-    st77xx_fill(0xffff);
-    for (int x = 0; x < 100; x++)
-        st77xx_pixel(x,x,0x0000);
+    st77xx_fill_box(0,0,40,40,st77xx_rgb565(255,0,0));
+    st77xx_fill_box(st77_width-41,0,40,40,st77xx_rgb565(0,255,0));
+    st77xx_fill_box(0,st77_height-41,40,40,st77xx_rgb565(0,0,255));
+    st77xx_fill_box(st77_width-41,st77_height-41,40,40,st77xx_rgb565(50,50,50));
+
+    // Overclocking
+    vreg_set_voltage(VREG_VOLTAGE_1_30);
+    set_sys_clock_khz(EMU.base_clock, true);
 
     // Keys pin initialization
     gpio_init(KEY_LEFT);
