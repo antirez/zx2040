@@ -321,7 +321,7 @@ void st77xx_init(void) {
     // At startup the display RAM is full of random pixel colors,
     // it's not nice to see. Fill the screen with black pixels
     // before showing the content to the user.
-    st77xx_fill(0);
+    st77xx_fill(0x0);
 
     st77xx_cmd(0x29); // Display on
     sleep_ms(500);

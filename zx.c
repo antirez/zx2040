@@ -336,6 +336,16 @@ void init_emulator(void) {
     for (int x = 0; x < 100; x++)
         st77xx_pixel(x,x,0x0000);
 
+    // Keys pin initialization
+    gpio_init(KEY_LEFT);
+    gpio_init(KEY_RIGHT);
+    gpio_init(KEY_UP);
+    gpio_init(KEY_DOWN);
+    gpio_init(KEY_FIRE);
+    gpio_set_dir_in_masked(
+        (1<<KEY_LEFT) | (1<<KEY_RIGHT) | (1<<KEY_UP) | (1<<KEY_DOWN) |
+        (1<<KEY_FIRE));
+
     // Convert palette to RGB565
     for (int j = 0; j < 16; j++)
         zxpalette[j] = palette_to_565(zxpalette[j]);
