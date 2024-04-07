@@ -226,7 +226,7 @@ void zx_init(zx_t* sys, const zx_desc_t* desc) {
     sys->display_ram_bank = 0;
     sys->frame_scan_lines = 312;
     sys->top_border_scanlines = 64;
-    sys->scanline_period = 224;
+    sys->scanline_period = 150; // 224;
     sys->scanline_counter = sys->scanline_period;
 
     sys->pins = z80_init(&sys->cpu);

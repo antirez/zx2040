@@ -47,10 +47,10 @@ void load_game(int game_id);
 
 /* ========================== Global state and defines ====================== */
 
-// We are not able to reach 30FPS, but still this is a good amount of
-// work for each zx_exec() call. Updating the display takes ~13 milliseconds
-// so to do this too often it's not a great idea.
-#define FRAME_USEC (33333)
+// Don't trust this USEC figure here, since the z80.h file implementation
+// is modified to glue together the instruction fetch steps, so we do
+// more work per tick.
+#define FRAME_USEC (30000)
 
 static struct emustate {
     zx_t zx;    // The emulator state.
