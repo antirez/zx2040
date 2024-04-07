@@ -122,12 +122,17 @@ const uint8_t keymap_valley[] = {
 };
 
 // Scuba
+// We redefine the keys at startup using macros.
+// Actually only level '1' (easy) can be selected
+// pressing up, as '3' and '2' associated with
+// the other keys are not received by the game
+// because pressed together with other keys.
 const uint8_t keymap_scuba[] = {
-    KEY_LEFT, 'z', '3',
-    KEY_RIGHT, 'x', '2',
+    KEY_LEFT, 'x', '3',
+    KEY_RIGHT, 'z', '2',
     KEY_FIRE, 'm', '1',
     KEY_DOWN, 'n', KEMPSTONE_DOWN,
-    KEY_UP, 'm', KEMPSTONE_UP,
+    KEY_UP, '1', '1',       // Start game at level 1.
     PRESS_AT_TICK, 10, 'k', // Redefine keys
     RELEASE_AT_TICK, 11, 'k',
     PRESS_AT_TICK, 14, 'z', // Redefine left
