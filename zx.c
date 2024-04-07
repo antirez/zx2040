@@ -251,7 +251,8 @@ uint16_t palette_to_565(uint32_t color) {
 // 4bpp framebuffer to save memory, so each byte in the CRT memory is
 // actually two pixels.
 void update_display(uint8_t *crt) {
-    // crt += 160*121;
+    if (st77_height < ZX_DISPLAY_HEIGHT)
+        crt += 160*((ZX_DISPLAY_HEIGHT-st77_height)>>1);
     uint16_t line[st77_width];
     for (uint32_t y = 0; y < st77_height; y++) {
         for (uint32_t x = 0; x < st77_width; x += 2) {
