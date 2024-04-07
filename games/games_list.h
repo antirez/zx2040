@@ -10,5 +10,7 @@ struct game_entry {
     {"Ik", (void*)0x100890d6, 42854, keymap_ik},
     {"Jetpac", (void*)0x1009383c, 10848, keymap_jetpac},
     {"Loderunner", (void*)0x1009629c, 32181, keymap_loderunner},
-    {"Thrust", (void*)0x1009e051, 33938, keymap_thrust},
+    {"Scuba", (void*)0x1009e051, 32213, keymap_scuba},
+    {"Thrust", (void*)0x100a5e26, 33938, keymap_thrust},
+    {"Valley", (void*)0x100ae2b8, 44619, keymap_valley},
 };

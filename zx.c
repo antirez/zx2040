@@ -328,6 +328,12 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int fl
     }
 }
 
+// Clear all keys. Useful when we switch game, to make sure that no
+// key downs are left from the previous keymap.
+void flush_zx_key_press(zx_t *zx) {
+    for (int j = 0; j < 255; j++) zx_key_up(zx,j);
+}
+
 // Initialize the Pico and the Spectrum emulator.
 void init_emulator(void) {
     // Set default configuration.
@@ -389,6 +395,7 @@ void init_emulator(void) {
 void load_game(int game_id) {
     struct game_entry *g = &GamesTable[game_id];
     chips_range_t r = {.ptr=g->addr, .size=g->size};
+    flush_zx_key_press(&EMU.zx); // Make sure no keys are down.
     EMU.current_keymap = g->map;
     EMU.tick = 0;
     zx_quickload(&EMU.zx, r);

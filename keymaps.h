@@ -26,11 +26,8 @@
  * and to actual keyboard keys useful to select the joystic and
  * start the game. */
 
-// Default keymap, used in all the games where we
-// can select the joystick pressing one of
-// 1,2,3,4,5.
-// Actually normally it's better to write a game-specific map that
-// selects the joystick for the user on startup using PRESS_AT_TICK.
+// Default keymap. Loaded at startup, but actually
+// right now every game requires to have a specific map.
 const uint8_t keymap_default[] = {
     KEY_LEFT, '1', KEMPSTONE_LEFT,
     KEY_RIGHT, '2', KEMPSTONE_RIGHT,
@@ -114,3 +111,32 @@ const uint8_t keymap_ik[] = {
     KEY_END, 0, 0,
 };
 
+// Valley of rain.
+const uint8_t keymap_valley[] = {
+    KEY_LEFT, 'o', '1',
+    KEY_RIGHT, 'p', KEMPSTONE_RIGHT,
+    KEY_FIRE, 'm', KEMPSTONE_FIRE,
+    KEY_DOWN, 'a', KEMPSTONE_DOWN,
+    KEY_UP, 'q', KEMPSTONE_UP,
+    KEY_END, 0, 0,
+};
+
+// Scuba
+const uint8_t keymap_scuba[] = {
+    KEY_LEFT, 'z', '3',
+    KEY_RIGHT, 'x', '2',
+    KEY_FIRE, 'm', '1',
+    KEY_DOWN, 'n', KEMPSTONE_DOWN,
+    KEY_UP, 'm', KEMPSTONE_UP,
+    PRESS_AT_TICK, 10, 'k', // Redefine keys
+    RELEASE_AT_TICK, 11, 'k',
+    PRESS_AT_TICK, 14, 'z', // Redefine left
+    RELEASE_AT_TICK, 15, 'z',
+    PRESS_AT_TICK, 16, 'x', // Redefine right
+    RELEASE_AT_TICK, 17, 'x',
+    PRESS_AT_TICK, 18, 'm', // Redefine accelerate
+    RELEASE_AT_TICK, 19, 'm',
+    PRESS_AT_TICK, 20, 'n', // Redefine decelerate
+    RELEASE_AT_TICK, 21, 'n',
+    KEY_END, 0, 0,
+};
