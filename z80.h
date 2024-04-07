@@ -1817,10 +1817,11 @@ uint64_t z80_tick(z80_t* cpu, uint64_t pins) {
     switch (cpu->step) {
         //=== shared fetch machine cycle for non-DD/FD-prefixed ops
         // M1/T2: load opcode from data bus
-        case 0: _wait(); cpu->opcode = _gd(); goto step_next;
-        // M1/T3: refresh cycle
-        case 1: pins = _z80_refresh(cpu, pins); goto step_next;
-        // M1/T4: branch to instruction 'payload'
+        // Ih the Pico port we speed-up things a bit by
+        // glueing the first three steps. Since this happens at every
+        // instruction executed, the speed-up is almost 2x.
+        case 0: _wait(); cpu->opcode = _gd(); cpu->step = 1;
+        case 1: pins = _z80_refresh(cpu, pins); cpu->step = 2;
         case 2: {
             cpu->step = _z80_optable[cpu->opcode];
             // preload effective address for (HL) ops
