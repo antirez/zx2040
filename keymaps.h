@@ -145,3 +145,13 @@ const uint8_t keymap_scuba[] = {
     RELEASE_AT_TICK, 21, 'n',
     KEY_END, 0, 0,
 };
+
+// BMX simulator
+const uint8_t keymap_bmxsim[] = {
+    KEY_LEFT, '6', KEMPSTONE_LEFT,
+    KEY_RIGHT, '7', KEMPSTONE_RIGHT,
+    KEY_FIRE, '0', KEMPSTONE_FIRE,
+    KEY_DOWN, 's', KEMPSTONE_DOWN,  // Start game.
+    KEY_UP, 's', KEMPSTONE_UP,      // Start game.
+    KEY_END, 0, 0,
+};
