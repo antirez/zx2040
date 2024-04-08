@@ -445,6 +445,7 @@ static uint64_t _zx_tick(zx_t* sys, uint64_t pins) {
 uint32_t zx_exec(zx_t* sys, uint32_t micro_seconds) {
     CHIPS_ASSERT(sys && sys->valid);
     const uint32_t num_ticks = clk_us_to_ticks(sys->freq_hz, micro_seconds);
+    //const uint32_t num_ticks = sys->scanline_period * (sys->frame_scan_lines+1);
     uint64_t pins = sys->pins;
     if (0 == sys->debug.callback.func) {
         // run without debug hook

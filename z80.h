@@ -1814,6 +1814,29 @@ uint64_t z80_prefetch(z80_t* cpu, uint16_t new_pc) {
 
 uint64_t z80_tick(z80_t* cpu, uint64_t pins) {
     pins &= ~(Z80_CTRL_PIN_MASK|Z80_RETI);
+    #if 1
+    // Poor man/woman's profiler to check which opcodes are
+    // called more often by a given game.
+    {
+        #define OPMAX 1516
+        static uint32_t stats_tick;
+        static uint32_t called[OPMAX];
+        if (cpu->step >= 0 && cpu->step < OPMAX) called[cpu->step]++;
+        stats_tick++;
+        if ((stats_tick % 50000) == 0) {
+            uint32_t max = 0;
+            for (int j = 0; j < OPMAX; j++)
+                if (called[j] > max) max = called[j];
+            max /= 20;
+            printf("--- Opcodes ---\n");
+            for (int j = 0; j < OPMAX; j++) {
+                if (called[j] > max) printf("%d=%d ",j, (int)called[j]);
+                called[j] = 0;
+            }
+            printf("\n");
+        }
+    }
+    #endif
     switch (cpu->step) {
         //=== shared fetch machine cycle for non-DD/FD-prefixed ops
         // M1/T2: load opcode from data bus
@@ -1993,13 +2016,15 @@ uint64_t z80_tick(z80_t* cpu, uint64_t pins) {
         
         //  10: DJNZ d (M:4 T:13)
         // -- generic
-        case   73: goto step_next;
+        case   73: cpu->step = 74; // speedup
         // -- mread
-        case   74: goto step_next;
+        case   74: cpu->step = 75; // speedup
         case   75: _wait();_mread(cpu->pc++);goto step_next;
         case   76: cpu->dlatch=_gd();if(--cpu->b==0){_skip(5);};goto step_next;
         // -- generic
-        case   77: cpu->pc+=(int8_t)cpu->dlatch;cpu->wz=cpu->pc;goto step_next;
+        case   77: cpu->pc+=(int8_t)cpu->dlatch;cpu->wz=cpu->pc;
+            // speedup
+            cpu->step = 82; goto fetch_next;
         case   78: goto step_next;
         case   79: goto step_next;
         case   80: goto step_next;
@@ -2190,11 +2215,13 @@ uint64_t z80_tick(z80_t* cpu, uint64_t pins) {
         
         //  28: JR Z,d (M:3 T:12)
         // -- mread
-        case  174: goto step_next;
+        case  174: cpu->step = 175; // Speedup
         case  175: _wait();_mread(cpu->pc++);goto step_next;
         case  176: cpu->dlatch=_gd();if(!(_cc_z)){_skip(5);};goto step_next;
         // -- generic
-        case  177: cpu->pc+=(int8_t)cpu->dlatch;cpu->wz=cpu->pc;goto step_next;
+        case  177: cpu->pc+=(int8_t)cpu->dlatch;cpu->wz=cpu->pc;
+            // Speedup
+            cpu->step = 182; goto fetch_next;
         case  178: goto step_next;
         case  179: goto step_next;
         case  180: goto step_next;
@@ -2384,11 +2411,11 @@ uint64_t z80_tick(z80_t* cpu, uint64_t pins) {
         case  285: _wait();_mread(cpu->pc++);goto step_next;
         case  286: cpu->wzl=_gd();goto step_next;
         // -- mread
-        case  287: goto step_next;
+        case  287: cpu->step = 288; // Speedup
         case  288: _wait();_mread(cpu->pc++);goto step_next;
         case  289: cpu->wzh=_gd();goto step_next;
         // -- mread
-        case  290: goto step_next;
+        case  290: cpu->step = 291; // Speedup
         case  291: _wait();_mread(cpu->wz++);goto step_next;
         case  292: cpu->a=_gd();goto step_next;
         // -- overlapped
@@ -3011,7 +3038,7 @@ uint64_t z80_tick(z80_t* cpu, uint64_t pins) {
         
         //  BE: CP (HL) (M:2 T:7)
         // -- mread
-        case  493: goto step_next;
+        case  493: cpu->step = 494; // Speedup
         case  494: _wait();_mread(cpu->addr);goto step_next;
         case  495: cpu->dlatch=_gd();goto step_next;
         // -- overlapped
