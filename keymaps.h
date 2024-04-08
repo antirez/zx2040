@@ -181,6 +181,7 @@ const uint8_t keymap_skooldaze[] = {
     KEY_UP|KEY_EXT, KEY_RIGHT, 'l', // Up + right = leap
     KEY_UP|KEY_EXT, KEY_FIRE, 'j',  // Up + fire = jump
     KEY_UP|KEY_EXT, KEY_DOWN, 'n',  // [N]o to usign your names.
+    KEY_LEFT|KEY_EXT, KEY_FIRE, 'u',  // [U]nderstand.
 
     KEY_LEFT, 'o', KEMPSTONE_LEFT,
     KEY_RIGHT, 'p', KEMPSTONE_RIGHT,
