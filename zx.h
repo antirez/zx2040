@@ -104,7 +104,6 @@ typedef enum {
 typedef struct {
     zx_type_t type;                     // default is ZX_TYPE_48K
     zx_joystick_type_t joystick_type;   // what joystick to emulate, default is ZX_JOYSTICK_NONE
-    chips_debug_t debug;                // optional debugger hook
     struct {
         chips_audio_callback_t callback;
         int num_samples;
@@ -146,7 +145,6 @@ typedef struct {
     uint64_t pins;
     uint64_t freq_hz;
     bool valid;
-    chips_debug_t debug;
     struct {
         chips_audio_callback_t callback;
         int num_samples;
@@ -207,7 +205,6 @@ static void _zx_init_keyboard_matrix(zx_t* sys);
 
 void zx_init(zx_t* sys, const zx_desc_t* desc) {
     CHIPS_ASSERT(sys && desc);
-    if (desc->debug.callback.func) { CHIPS_ASSERT(desc->debug.stopped); }
 
     memset(sys, 0, sizeof(zx_t));
     sys->valid = true;
@@ -217,7 +214,6 @@ void zx_init(zx_t* sys, const zx_desc_t* desc) {
     sys->audio.callback = desc->audio.callback;
     sys->audio.num_samples = _ZX_DEFAULT(desc->audio.num_samples, ZX_DEFAULT_AUDIO_SAMPLES);
     CHIPS_ASSERT(sys->audio.num_samples <= ZX_MAX_AUDIO_SAMPLES);
-    sys->debug = desc->debug;
 
     // initalize the hardware
     sys->border_color = 0;
@@ -447,18 +443,8 @@ uint32_t zx_exec(zx_t* sys, uint32_t micro_seconds) {
     const uint32_t num_ticks = clk_us_to_ticks(sys->freq_hz, micro_seconds);
     //const uint32_t num_ticks = sys->scanline_period * (sys->frame_scan_lines+1);
     uint64_t pins = sys->pins;
-    if (0 == sys->debug.callback.func) {
-        // run without debug hook
-        for (uint32_t tick = 0; tick < num_ticks; tick++) {
-            pins = _zx_tick(sys, pins);
-        }
-    }
-    else {
-        // run with debug hook
-        for (uint32_t tick = 0; (tick < num_ticks) && !(*sys->debug.stopped); tick++) {
-            pins = _zx_tick(sys, pins);
-            sys->debug.callback.func(sys->debug.callback.user_data, pins);
-        }
+    for (uint32_t tick = 0; tick < num_ticks; tick++) {
+        pins = _zx_tick(sys, pins);
     }
     sys->pins = pins;
     kbd_update(&sys->kbd, micro_seconds);
@@ -902,7 +888,6 @@ chips_display_info_t zx_display_info(zx_t* sys) {
 uint32_t zx_save_snapshot(zx_t* sys, zx_t* dst) {
     CHIPS_ASSERT(sys && dst);
     *dst = *sys;
-    chips_debug_snapshot_onsave(&dst->debug);
     chips_audio_callback_snapshot_onsave(&dst->audio.callback);
     //ay38910_snapshot_onsave(&dst->ay);
     mem_snapshot_onsave(&dst->mem, sys);
@@ -916,7 +901,6 @@ bool zx_load_snapshot(zx_t* sys, uint32_t version, zx_t* src) {
     }
     static zx_t im;
     im = *src;
-    chips_debug_snapshot_onload(&im.debug, &sys->debug);
     chips_audio_callback_snapshot_onload(&im.audio.callback, &sys->audio.callback);
     //ay38910_snapshot_onload(&im.ay, &sys->ay);
     mem_snapshot_onload(&im.mem, sys);

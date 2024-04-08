@@ -1,3 +1,4 @@
+* Screen offset, and ability to scale, even removing borders.
 * Use Pico PWM to model audio without resorting to actual emulation.
 * Use Pico PWM for screen brightness.
 * Allow to change the clock from the menu.
