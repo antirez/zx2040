@@ -466,7 +466,7 @@ int main() {
         update_display(EMU.zx.fb);
         end = get_absolute_time();
         printf("update_display(): %llu us\n",(unsigned long long)end-start);
-        printf("scanline_y: %d",EMU.zx.scanline_y);
+        printf("scanline_y: %d\n",EMU.zx.scanline_y);
 
         EMU.tick++;
     }

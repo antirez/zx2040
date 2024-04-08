@@ -222,7 +222,7 @@ void zx_init(zx_t* sys, const zx_desc_t* desc) {
     sys->display_ram_bank = 0;
     sys->frame_scan_lines = 312;
     sys->top_border_scanlines = 64;
-    sys->scanline_period = 150; // 224;
+    sys->scanline_period = 100; // was 224, but I changed Z80.h, so adjusted.
     sys->scanline_counter = sys->scanline_period;
 
     sys->pins = z80_init(&sys->cpu);
@@ -441,10 +441,16 @@ static uint64_t _zx_tick(zx_t* sys, uint64_t pins) {
 uint32_t zx_exec(zx_t* sys, uint32_t micro_seconds) {
     CHIPS_ASSERT(sys && sys->valid);
     const uint32_t num_ticks = clk_us_to_ticks(sys->freq_hz, micro_seconds);
-    //const uint32_t num_ticks = sys->scanline_period * (sys->frame_scan_lines+1);
     uint64_t pins = sys->pins;
     for (uint32_t tick = 0; tick < num_ticks; tick++) {
         pins = _zx_tick(sys, pins);
+        #if 0
+        // If we run for enough ticks and the refresh is near the end,
+        // we can do an early break to refresh the screen once a new image
+        // is available. However, is this useful? Most programs will just
+        // write on the VMEM at random times I guess.
+        if (num_ticks-tick < tick/8 && sys->scanline_y > 290) break;
+        #endif
     }
     sys->pins = pins;
     kbd_update(&sys->kbd, micro_seconds);
