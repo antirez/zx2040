@@ -18,6 +18,20 @@
 #define RELEASE_AT_TICK 0xfd // Release at the specified frame.
 #define KEY_END         0xff // This just marks the end of the key map.
 
+// Extended keymaps allow two device buttons (pins) to map to
+// other Specturm keys. This is useful for games such as Skool Daze
+// that have too many keys doing useful things, but where the nature
+// of the game don't make likely we press multiple keys for error.
+// 
+// To use this kind of maps, xor KEY_EXT to the first pin, then
+// provide as second entry in the row the second pin, and finally
+// a single Spectrum key code to trigger.
+// 
+// Important: the extended key maps of a game must be the initial entries,
+// before the normal entries. This way we avoid also sensing the keys
+// mapped to the single buttons involved.
+#define KEY_EXT         0x80
+
 /* Each row is: pin, keycode_1, keycode_2.
  *
  * So keys when a button is pressed logically two
@@ -147,11 +161,31 @@ const uint8_t keymap_scuba[] = {
 };
 
 // BMX simulator
+// Here we just need a way to start the game. There is no joystick
+// support apparently, so we map the default keys.
 const uint8_t keymap_bmxsim[] = {
     KEY_LEFT, '6', KEMPSTONE_LEFT,
     KEY_RIGHT, '7', KEMPSTONE_RIGHT,
     KEY_FIRE, '0', KEMPSTONE_FIRE,
     KEY_DOWN, 's', KEMPSTONE_DOWN,  // Start game.
     KEY_UP, 's', KEMPSTONE_UP,      // Start game.
+    KEY_END, 0, 0,
+};
+
+// Skooldaze. Here there are too many keys, so we resort
+// to extended mapping, using two keys pressed at the same time
+// to map to other actions.
+const uint8_t keymap_skooldaze[] = {
+    // Extended key maps must be the initial entries.
+    KEY_UP|KEY_EXT, KEY_LEFT, 's',  // Up + left = sit
+    KEY_UP|KEY_EXT, KEY_RIGHT, 'l', // Up + right = leap
+    KEY_UP|KEY_EXT, KEY_FIRE, 'j',  // Up + fire = jump
+    KEY_UP|KEY_EXT, KEY_DOWN, 'n',  // [N]o to usign your names.
+
+    KEY_LEFT, 'o', KEMPSTONE_LEFT,
+    KEY_RIGHT, 'p', KEMPSTONE_RIGHT,
+    KEY_FIRE, 'f', KEMPSTONE_FIRE,  // Fire catapult.
+    KEY_DOWN, 'a', KEMPSTONE_DOWN,
+    KEY_UP, 'q', KEMPSTONE_UP,
     KEY_END, 0, 0,
 };

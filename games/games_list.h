@@ -12,6 +12,7 @@ struct game_entry {
     {"Jetpac", (void*)0x1009d014, 10848, keymap_jetpac},
     {"Loderunner", (void*)0x1009fa74, 32181, keymap_loderunner},
     {"Scuba", (void*)0x100a7829, 32213, keymap_scuba},
-    {"Thrust", (void*)0x100af5fe, 33938, keymap_thrust},
-    {"Valley", (void*)0x100b7a90, 44619, keymap_valley},
+    {"Skooldaze", (void*)0x100af5fe, 40863, keymap_skooldaze},
+    {"Thrust", (void*)0x100b959d, 33938, keymap_thrust},
+    {"Valley", (void*)0x100c1a2f, 44619, keymap_valley},
 };

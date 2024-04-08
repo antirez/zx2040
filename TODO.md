@@ -6,3 +6,4 @@
 * Start in debugging mode if right key is pressed on boot.
 * Many more games.
 * Find a way to put code + game into the same UF2 image.
+* Extended key maps for games like Skool Daze, where you can press multiple device keys to map to different Spectrum keys.

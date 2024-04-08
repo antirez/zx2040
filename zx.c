@@ -1,3 +1,7 @@
+/* Copyright (C) 2024 Salvatore Sanfilippo -- All Rights Reserved.
+ * This code is released under the MIT license.
+ * See the LICENSE file for more info. */
+
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/vreg.h"
@@ -290,25 +294,39 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int fl
                     keymap[j] == RELEASE_AT_TICK) &&
                   keymap[j+1] == ticks)
         {
-            if (!(flags & HANDLE_KEYPRESS_MACRO)) continue;
             // Press/release keys when a given frame is reached.
+            if (!(flags & HANDLE_KEYPRESS_MACRO)) continue;
             if (keymap[j] == PRESS_AT_TICK) {
                 zx_key_down(zx,keymap[j+2]);
             } else {
                 zx_key_up(zx,keymap[j+2]);
             }
         } else {
-            if (!(flags & HANDLE_KEYPRESS_PIN)) continue;
             // Map the GPIO status to the ZX Spectrum keyboard
             // registers.
-            if (gpio_get(keymap[j])) {
-                put_down_set(keymap[j+1]);
-                put_down_set(keymap[j+2]);
-                zx_key_down(zx,keymap[j+1]);
-                zx_key_down(zx,keymap[j+2]);
+            if (!(flags & HANDLE_KEYPRESS_PIN)) continue;
+            if (!(keymap[j] & KEY_EXT)) {
+                // Normal key maps: Pico pin -> two Spectrum keys.
+                if (gpio_get(keymap[j])) {
+                    put_down_set(keymap[j+1]);
+                    put_down_set(keymap[j+2]);
+                    zx_key_down(zx,keymap[j+1]);
+                    zx_key_down(zx,keymap[j+2]);
+                } else {
+                    if (!put_down_get(keymap[j+1])) zx_key_up(zx,keymap[j+1]);
+                    if (!put_down_get(keymap[j+2])) zx_key_up(zx,keymap[j+2]);
+                }
             } else {
-                if (!put_down_get(keymap[j+1])) zx_key_up(zx,keymap[j+1]);
-                if (!put_down_get(keymap[j+2])) zx_key_up(zx,keymap[j+2]);
+                // Extended key maps: two Pico pins -> one Spectrum key.
+                if (gpio_get(keymap[j]&0x7f) &&
+                    gpio_get(keymap[j+1]))
+                {
+                    put_down_set(keymap[j+2]);
+                    zx_key_down(zx,keymap[j+2]);
+                    return; // Return ASAP before processing normal keys.
+                } else {
+                    if (!put_down_get(keymap[j+2])) zx_key_up(zx,keymap[j+2]);
+                }
             }
         }
     }
@@ -325,14 +343,13 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int fl
         } else {
             left_right_frames = 0;
         }
-
     }
 }
 
 // Clear all keys. Useful when we switch game, to make sure that no
 // key downs are left from the previous keymap.
 void flush_zx_key_press(zx_t *zx) {
-    for (int j = 0; j < 255; j++) zx_key_up(zx,j);
+    for (int j = 0; j < KBD_MAX_KEYS; j++) zx_key_up(zx,j);
 }
 
 // Initialize the Pico and the Spectrum emulator.
