@@ -458,7 +458,7 @@ int main() {
         if (EMU.debug) {
             char buf[32];
             snprintf(buf,sizeof(buf),"%d",(int)EMU.tick);
-            ui_draw_string(0,0,buf,3,2);
+            ui_draw_string(10,10,buf,3,2);
         }
 
         // Update the display with the current CRT image.

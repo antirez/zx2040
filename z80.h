@@ -1814,7 +1814,7 @@ uint64_t z80_prefetch(z80_t* cpu, uint16_t new_pc) {
 
 uint64_t z80_tick(z80_t* cpu, uint64_t pins) {
     pins &= ~(Z80_CTRL_PIN_MASK|Z80_RETI);
-    #if 1
+    #if 0
     // Poor man/woman's profiler to check which opcodes are
     // called more often by a given game.
     {
