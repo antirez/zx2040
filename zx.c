@@ -76,12 +76,40 @@ static struct emustate {
     int menu_active;
     uint32_t menu_left_at_tick; // EMU.tick when the menu was closed.
     int current_game;
+    uint32_t show_border;
+
     // All our UI graphic primitives are automatically cropped
     // to the area selected by ui_set_crop_area().
     uint16_t ui_crop_x1, ui_crop_x2, ui_crop_y1, ui_crop_y2;
 } EMU;
 
 /* ========================== Emulator user interface ======================= */
+
+// Numerical parameters that it is possible to change using the
+// user interface.
+
+const uint32_t SettingsZoomValues[] = {100,112,125,150};
+const char *SettingsZoomValuesNames[] = {"100%","112%","125%","150%"};
+struct UISettingsItem {
+    const char *name;   // Name of the setting.
+    uint32_t *ptr;      // Pointer to the variable of the setting.
+    uint32_t step;      // Incremnet/decrement pressing right/left.
+    uint32_t min;       // Minimum value alllowed.
+    uint32_t max;       // Maximum value allowed.
+    const uint32_t *values; // If not NULL, discrete values the variable can
+                            // assume.
+    const char **values_names; // If not NULL, the name to display for the
+                               // values array. If values is defined, this
+                               // must be defined as well.
+} SettingsList[] = {
+    {"clock", &EMU.emu_clock, 5000, 130000, 600000, NULL, NULL},
+    {"border", &EMU.show_border, 0, 1, 1, NULL, NULL},
+    {"zoom", &EMU.show_border, 0, 0, 0,
+        SettingsZoomValues, SettingsZoomValuesNames,
+    }
+};
+
+#define SettingsListLen (sizeof(SettingsList)/sizeof(SettingsList[0]))
 
 // Set the draw window of the ui_* functions. This is useful in order
 // to limit drawing the menu inside its area, without doing too many
@@ -161,12 +189,14 @@ void ui_draw_string(uint16_t px, uint16_t py, const char *s, uint8_t color, uint
 // Load the prev/next game in the list (dir = -1 / 1).
 void ui_change_game(int dir) {
     EMU.current_game += dir;
-    if (EMU.current_game == -1) {
+    if (EMU.current_game == -SettingsListLen-1) {
         EMU.current_game = GamesTableSize-1;
     } else if (EMU.current_game == GamesTableSize) {
-        EMU.current_game = 0;
+        EMU.current_game = -SettingsListLen;
     }
-    load_game(EMU.current_game);
+    // Negative indexes are settings items. The game
+    // list starts at index 0.
+    if (EMU.current_game >= 0) load_game(EMU.current_game);
 }
 
 // Called when the UI is active. Handle the key presses needed to select
@@ -220,11 +250,12 @@ void ui_draw_menu(void) {
                      menu_y+1,menu_y+menu_h-2);
 
     int count = 0;
-    int first_game = EMU.current_game - listlen;
-    if (first_game < 0) first_game = 0;
+    int first_game = (int)EMU.current_game - listlen + 1;
+    if (first_game < -SettingsListLen) first_game = -SettingsListLen;
     for (int j = first_game;; j++) {
-        if (j >= GamesTableSize || count >= listlen) break;
-        int color = 4;
+        if (j >= (int)GamesTableSize || count >= listlen) break;
+
+        int color = j >= 0 ? 4 : 6;
         // Highlight the currently selected game, with a box of the color
         // of the font, and the black font (so basically the font is inverted).
         if (j == EMU.current_game) {
@@ -232,8 +263,16 @@ void ui_draw_menu(void) {
                         font_size*8,color,color);
             color = 0;
         }
-        ui_draw_string(menu_x+2,menu_y+2+count*(8*font_size),   
-            GamesTable[j].name,color,font_size);
+        if (j < 0) {
+            // Show setting item.
+            struct UISettingsItem *si = &SettingsList[-j-1];
+            ui_draw_string(menu_x+2,menu_y+2+count*(8*font_size),   
+                si->name,color,font_size);
+        } else {
+            // Show game item.
+            ui_draw_string(menu_x+2,menu_y+2+count*(8*font_size),   
+                GamesTable[j].name,color,font_size);
+        }
         count++;
     }
     ui_reset_crop_area();
@@ -432,6 +471,7 @@ void init_emulator(void) {
     EMU.tick = 0;
     EMU.current_keymap = keymap_default;
     EMU.current_game = 0;
+    EMU.show_border = 1;
     ui_reset_crop_area();
 
     // Pico Init
@@ -535,8 +575,8 @@ int main() {
         // Update the display with the current CRT image.
         start = get_absolute_time();
         //update_display(125,0);  // scale 125%, no borders
-        //update_display(0,1);    // No scaling, borders
-        update_display(112,1);    // scale 112%, borders (as they fit)
+        update_display(100,1);    // No scaling, borders
+        //update_display(112,1);    // scale 112%, borders (as they fit)
         end = get_absolute_time();
         printf("update_display(): %llu us\n",(unsigned long long)end-start);
         printf("scanline_y: %d\n",EMU.zx.scanline_y);
