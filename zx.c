@@ -208,7 +208,7 @@ void ui_draw_menu(void) {
     int font_size = 2;
     int menu_x = st77_width/2;
     int menu_w = st77_width/2-5;
-    int menu_y = 10;
+    int menu_y = 32; // Skip border in case it's not displayed.
     int menu_h = (st77_height/3*2); // Use 2/3 of height.
     menu_h -= menu_h&(8*font_size-1); // Make multiple of font pixel size;
     int vpad = 2;       // Vertical padding of text inside the box.
@@ -254,19 +254,89 @@ uint16_t palette_to_565(uint32_t color) {
 // Note that the zx.h file included here was modified in order to use
 // 4bpp framebuffer to save memory, so each byte in the CRT memory is
 // actually two pixels.
-void update_display(uint8_t *crt) {
-    if (st77_height < ZX_DISPLAY_HEIGHT)
-        crt += 160*((ZX_DISPLAY_HEIGHT-st77_height)>>1);
-    uint16_t line[st77_width];
+//
+// SCALING:
+// This function supports scaling: it means that it is able to transfer
+// an overscaled Spectrum image to the ST77xx dispaly. This is useful in order
+// to accomodate different display sizes.
+//
+//
+// Valid scaling arguments:
+//
+// 100: no scaling
+// 112: 112% scaling
+// 125: 125% scaling
+// 150: 150% scaling
+//
+// BORDERS:
+// If border is false, borders are not drawn at all.
+// Useful for small displays or when scaling is used.
+void update_display(uint32_t scaling, uint32_t border) {
+    uint16_t line[st77_width+1]={0}; // One pixel more allow us to overflow
+                                     // when doing scaling, instead of checking
+                                     // (which is costly). Hence width+1.
+
+    uint8_t *crt = EMU.zx.fb;
+
+    // Configure scaling: we duplicate a column/row every N cols/rows.
+    uint32_t x_dup_mask = 0xffff; // no dup.
+    uint32_t y_dup_mask = 0xffff; // no dup.
+    switch (scaling) {
+        case 150: x_dup_mask = 0; y_dup_mask = 1; break;
+        case 125: x_dup_mask = 1; y_dup_mask = 3; break;
+        case 112: x_dup_mask = 3; y_dup_mask = 7; break;
+        case 100:
+        default: scaling = 0; break;
+    }
+
+    // Center Spectrum framebuffer into Pico display and
+    // set offset to remove borders if needed.
+    if (!border) crt += 160*32;
+    uint32_t xx_start = border ? 0 : 16; // 16*2 = 32 (4 bit per pixel).
+    uint32_t zx_height = ZX_DISPLAY_HEIGHT - 64*(!border);
+    uint32_t zx_width = ZX_DISPLAY_WIDTH - 64*(!border);
+    if (scaling) {
+        // Adjust virtual Spectrum framebuffer size by scaling.
+        zx_height = (zx_height*(y_dup_mask+2)) / (y_dup_mask+1);
+        zx_width = (zx_width*(y_dup_mask+2)) / (y_dup_mask+1);
+    }
+
+    if (st77_height < zx_height)
+        crt += 160*((zx_height-st77_height)>>1);
+    if (st77_width < zx_width)
+        xx_start += (zx_width-st77_width)>>2;
+
+    // Transfer data to the display.
+    //
+    // Note that we use xx and yy counters other than x and y since
+    // we want to duplicate lines every N cols/rows when scaling is
+    // used, and when this happens we advance x and y by a pixel more,
+    // so we need counters relative to the Spectrum video, not the display.
+    uint32_t yy = 0;
     for (uint32_t y = 0; y < st77_height; y++) {
-        for (uint32_t x = 0; x < st77_width; x += 2) {
-            uint8_t pixels = crt[x>>1];
-            line[x] = zxpalette[(pixels>>4)&0xf];
-            line[x+1] = zxpalette[pixels&0xf];
+        uint8_t *p = crt;
+        int xx = xx_start;
+        for (uint32_t x = 0; x < st77_width && xx < 160; x += 2) {
+            line[x] = zxpalette[(p[xx]>>4)&0xf];
+            line[x+1] = zxpalette[p[xx]&0xf];
+            // Duplicate pixel according to scaling mask.
+            if (((xx+1)&x_dup_mask) == 0) {
+                line[x+2] = line[x+1];
+                x++;
+            }
+            xx++;
         }
         st77xx_setwin(0, y, st77_width-1, y);
-        st77xx_data(line,sizeof(line));
-        crt += 160;
+        st77xx_data(line,sizeof(line)-2); // -2 to account for the extra pixel
+                                          // allocated above.
+        // Duplicating row according to scaling mask.
+        if (((yy+1)&y_dup_mask) == 0) {
+            y++;
+            st77xx_setwin(0, y, st77_width-1, y);
+            st77xx_data(line,sizeof(line)-2);
+        }
+        crt += 160; yy++; // Next row.
+        if (crt >= EMU.zx.fb+ZX_FRAMEBUFFER_SIZE_BYTES) break;
     }
 }
 
@@ -421,6 +491,7 @@ void load_game(int game_id) {
 
 int main() {
     init_emulator();
+    st77xx_fill(0);
     load_game(EMU.current_game);
 
     while (true) {
@@ -463,7 +534,9 @@ int main() {
 
         // Update the display with the current CRT image.
         start = get_absolute_time();
-        update_display(EMU.zx.fb);
+        //update_display(125,0);  // scale 125%, no borders
+        //update_display(0,1);    // No scaling, borders
+        update_display(112,1);    // scale 112%, borders (as they fit)
         end = get_absolute_time();
         printf("update_display(): %llu us\n",(unsigned long long)end-start);
         printf("scanline_y: %d\n",EMU.zx.scanline_y);
