@@ -75,8 +75,10 @@ static struct emustate {
     // Is the game selection / config menu shown?
     int menu_active;
     uint32_t menu_left_at_tick; // EMU.tick when the menu was closed.
-    int current_game;
-    uint32_t show_border;
+    int current_game;           // Game index in the menu. If less than 0
+                                // a settings item is selected instead.
+    uint32_t show_border;       // If 0, Spectrum border is not drawn.
+    uint32_t scaling;           // Spectrum -> display scaling factor.
 
     // All our UI graphic primitives are automatically cropped
     // to the area selected by ui_set_crop_area().
@@ -89,7 +91,7 @@ static struct emustate {
 // user interface.
 
 const uint32_t SettingsZoomValues[] = {100,112,125,150};
-const char *SettingsZoomValuesNames[] = {"100%","112%","125%","150%"};
+const char *SettingsZoomValuesNames[] = {"100%","112%","125%","150%",NULL};
 struct UISettingsItem {
     const char *name;   // Name of the setting.
     uint32_t *ptr;      // Pointer to the variable of the setting.
@@ -103,13 +105,68 @@ struct UISettingsItem {
                                // must be defined as well.
 } SettingsList[] = {
     {"clock", &EMU.emu_clock, 5000, 130000, 600000, NULL, NULL},
-    {"border", &EMU.show_border, 0, 1, 1, NULL, NULL},
-    {"zoom", &EMU.show_border, 0, 0, 0,
+    {"border", &EMU.show_border, 1, 0, 1, NULL, NULL},
+    {"zoom", &EMU.scaling, 0, 0, 0,
         SettingsZoomValues, SettingsZoomValuesNames,
     }
 };
 
 #define SettingsListLen (sizeof(SettingsList)/sizeof(SettingsList[0]))
+
+// Convert the setting 'id' name and current value into a string
+// to show as menu item.
+void settings_to_string(char *buf, size_t buflen, int id) {
+    if (SettingsList[id].values == NULL) {
+        snprintf(buf,buflen,"%s:%u",
+            SettingsList[id].name,
+            SettingsList[id].ptr[0]);
+    } else {
+        int j = 0;
+        while(SettingsList[id].values_names[j]) {
+            if (SettingsList[id].values[j] == SettingsList[id].ptr[0])
+                break;
+            j++;
+        }
+        snprintf(buf,buflen,"%s:%s",
+            SettingsList[id].name,
+            SettingsList[id].values_names[j] ?
+            SettingsList[id].values_names[j] : "?");
+    }
+}
+
+// Change the specified setting ID value to the next/previous
+// value. If we are already at the min or max value, nothing is
+// done.
+//
+// 'dir' shoild be 1 (next value) or -1 (previous value).
+void settings_change_value(int id, int dir) {
+    struct UISettingsItem *si = SettingsList+id;
+    if (si->values == NULL) {
+        if (si->ptr[0] == si->min && dir == -1) return;
+        else if (si->ptr[0] == si->max && dir == 1) return;
+        si->ptr[0] += si->step * dir;
+        if (si->ptr[0] < si->min) si->ptr[0] = si->min;
+        else if (si->ptr[0] > si->max) si->ptr[0] = si->max;
+    } else {
+        int j = 0;
+        while (si->values_names[j]) {
+            if (si->values[j] == si->ptr[0]) break;
+            j++;
+        }
+
+        // In case of non standard value found, recover
+        // setting the first valid value.
+        if (si->values_names[j] == NULL) {
+            j = 0;
+            si->ptr[0] = si->values[0];
+        }
+        
+        if (j == 0 && dir == -1) return;
+        if (si->values_names[j+1] == NULL && dir == 1) return;
+        j += dir;
+        si->ptr[0] = si->values[j];
+    }
+}
 
 // Set the draw window of the ui_* functions. This is useful in order
 // to limit drawing the menu inside its area, without doing too many
@@ -221,9 +278,15 @@ void ui_handle_key_press(void) {
     }
     if (event == -1) return; // No key pressed right now.
 
+    int value_change_dir = -1;
     switch(event) {
     case KEMPSTONE_UP: ui_change_game(-1); break;
     case KEMPSTONE_DOWN: ui_change_game(1); break;
+    case KEMPSTONE_RIGHT: value_change_dir = 1; // fall through.
+    case KEMPSTONE_LEFT:
+        if (EMU.current_game < 0)
+            settings_change_value(-EMU.current_game-1,value_change_dir);
+        break;
     case KEMPSTONE_FIRE:
         EMU.menu_active = 0;
         EMU.menu_left_at_tick = EMU.tick;
@@ -266,8 +329,10 @@ void ui_draw_menu(void) {
         if (j < 0) {
             // Show setting item.
             struct UISettingsItem *si = &SettingsList[-j-1];
+            char sistr[32];
+            settings_to_string(sistr,sizeof(sistr),-j-1);
             ui_draw_string(menu_x+2,menu_y+2+count*(8*font_size),   
-                si->name,color,font_size);
+                sistr,color,font_size);
         } else {
             // Show game item.
             ui_draw_string(menu_x+2,menu_y+2+count*(8*font_size),   
@@ -472,6 +537,7 @@ void init_emulator(void) {
     EMU.current_keymap = keymap_default;
     EMU.current_game = 0;
     EMU.show_border = 1;
+    EMU.scaling = 100;
     ui_reset_crop_area();
 
     // Pico Init
@@ -487,7 +553,7 @@ void init_emulator(void) {
 
     // Overclocking
     vreg_set_voltage(VREG_VOLTAGE_1_30);
-    set_sys_clock_khz(EMU.base_clock, true);
+    set_sys_clock_khz(EMU.base_clock, false);
 
     // Keys pin initialization
     gpio_init(KEY_LEFT);
@@ -552,12 +618,12 @@ int main() {
         handle_zx_key_press(&EMU.zx, EMU.current_keymap, EMU.tick, kflags);
 
         // Run the Spectrum VM for a few ticks.
-        set_sys_clock_khz(EMU.emu_clock, true); sleep_us(50);
+        set_sys_clock_khz(EMU.emu_clock, false); sleep_us(50);
         start = get_absolute_time();
         zx_exec(&EMU.zx, FRAME_USEC);
         end = get_absolute_time();
         printf("zx_exec(): %llu us\n",(unsigned long long)end-start);
-        set_sys_clock_khz(EMU.base_clock, true); sleep_us(50);
+        set_sys_clock_khz(EMU.base_clock, false); sleep_us(50);
 
         // Handle the menu.
         if (EMU.menu_active) {
@@ -574,9 +640,7 @@ int main() {
 
         // Update the display with the current CRT image.
         start = get_absolute_time();
-        //update_display(125,0);  // scale 125%, no borders
-        update_display(100,1);    // No scaling, borders
-        //update_display(112,1);    // scale 112%, borders (as they fit)
+        update_display(EMU.scaling,EMU.show_border);
         end = get_absolute_time();
         printf("update_display(): %llu us\n",(unsigned long long)end-start);
         printf("scanline_y: %d\n",EMU.zx.scanline_y);
