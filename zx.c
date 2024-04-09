@@ -566,8 +566,12 @@ void init_emulator(void) {
         (1<<KEY_FIRE));
 
     if (SPEAKER_PIN != -1) {
-        gpio_init(SPEAKER_PIN);
-        gpio_set_dir(SPEAKER_PIN,GPIO_OUT);
+        gpio_set_function(SPEAKER_PIN, GPIO_FUNC_PWM);
+        unsigned int slice_num = pwm_gpio_to_slice_num(SPEAKER_PIN);
+        pwm_set_wrap(slice_num, 8);
+        pwm_set_chan_level(slice_num, PWM_CHAN_A, 1);
+        pwm_set_chan_level(slice_num, PWM_CHAN_B, 1);
+        pwm_set_enabled(slice_num, true);
     }
 
     // Enter special mode depending on key presses during power up.

@@ -411,7 +411,9 @@ static uint64_t _zx_tick(zx_t* sys, uint64_t pins) {
                     static int beeper_prev = 0;
                     int beeper_now = 0 != (data & (1<<4));
                     if (beeper_now != beeper_prev) {
-                        gpio_put(SPEAKER_PIN, beeper_now);
+                        unsigned int slice_num = pwm_gpio_to_slice_num(SPEAKER_PIN);
+                        pwm_set_chan_level(slice_num, PWM_CHAN_A, beeper_now);
+                        pwm_set_chan_level(slice_num, PWM_CHAN_B, beeper_now);
                         beeper_prev = beeper_now;
                     }
                 }
