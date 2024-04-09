@@ -201,3 +201,13 @@ const uint8_t keymap_sabre[] = {
     KEY_END, 0, 0,
 };
 
+// Sanxon
+const uint8_t keymap_sanxion[] = {
+    KEY_LEFT, 0, KEMPSTONE_LEFT,
+    KEY_RIGHT, 0, KEMPSTONE_RIGHT,
+    KEY_FIRE, '1', KEMPSTONE_FIRE,
+    KEY_DOWN, '0', KEMPSTONE_DOWN,  // Start game.
+    KEY_UP, 0, KEMPSTONE_UP,      // Start game.
+    KEY_END, 0, 0,
+};
+
