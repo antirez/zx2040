@@ -271,7 +271,7 @@ void ui_handle_key_press(void) {
     for (int j = 0; ;j += 3) {
         if (km[j] == KEY_END) break;
         if (km[j] >= 32) continue; // Skip special codes.
-        if (gpio_get(km[j])) {
+        if (get_device_button(km[j])) {
             event = km[j+2];
             break;
         }
@@ -481,7 +481,7 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int fl
             if (!(flags & HANDLE_KEYPRESS_PIN)) continue;
             if (!(keymap[j] & KEY_EXT)) {
                 // Normal key maps: Pico pin -> two Spectrum keys.
-                if (gpio_get(keymap[j])) {
+                if (get_device_button(keymap[j])) {
                     put_down_set(keymap[j+1]);
                     put_down_set(keymap[j+2]);
                     zx_key_down(zx,keymap[j+1]);
@@ -492,8 +492,8 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int fl
                 }
             } else {
                 // Extended key maps: two Pico pins -> one Spectrum key.
-                if (gpio_get(keymap[j]&0x7f) &&
-                    gpio_get(keymap[j+1]))
+                if (get_device_button(keymap[j]&0x7f) &&
+                    get_device_button(keymap[j+1]))
                 {
                     put_down_set(keymap[j+2]);
                     zx_key_down(zx,keymap[j+2]);
@@ -510,7 +510,7 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int fl
     {
         #define LEFT_RIGHT_LONG_PRESS_FRAMES 30
         static int left_right_frames = 0;
-        if (gpio_get(KEY_LEFT) && gpio_get(KEY_RIGHT)) {
+        if (get_device_button(KEY_LEFT) && get_device_button(KEY_RIGHT)) {
             left_right_frames++;
             if (left_right_frames == LEFT_RIGHT_LONG_PRESS_FRAMES)
                 EMU.menu_active = 1;
@@ -566,8 +566,8 @@ void init_emulator(void) {
         (1<<KEY_FIRE));
 
     // Enter special mode depending on key presses during power up.
-    if (gpio_get(KEY_LEFT)) EMU.debug = 1; // Debugging mode.
-    if (gpio_get(KEY_RIGHT)) EMU.emu_clock = 300000; // Less overclock.
+    if (get_device_button(KEY_LEFT)) EMU.debug = 1; // Debugging mode.
+    if (get_device_button(KEY_RIGHT)) EMU.emu_clock = 300000; // Less overclock.
 
     // Convert palette to RGB565
     for (int j = 0; j < 16; j++)

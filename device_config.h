@@ -10,6 +10,11 @@
 #define KEY_UP 22
 #define KEY_DOWN 6
 
+// On most devices, we check if buttons are pressed just reading
+// the GPIO, but it is possible to redefine the macro reading the
+// value if needed, so that i2c keyboards or joypads can be supported.
+#define get_device_button(pin_num) gpio_get(pin_num)
+
 /* ============================= DISPLAY CONFIGURATION =======================
  * Your ST77xx display bus (SPI vs parallel), pins, rate, ...
  */
