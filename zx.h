@@ -406,7 +406,15 @@ static uint64_t _zx_tick(zx_t* sys, uint64_t pins) {
                 const uint8_t data = Z80_GET_DATA(pins);
                 sys->border_color = data & 7;
                 sys->last_fe_out = data;
-                beeper_set(&sys->beeper, 0 != (data & (1<<4)));
+                //beeper_set(&sys->beeper, 0 != (data & (1<<4)));
+                {
+                    static int beeper_prev = 0;
+                    int beeper_now = 0 != (data & (1<<4));
+                    if (beeper_now != beeper_prev) {
+                        gpio_put(SPEAKER_PIN, beeper_now);
+                        beeper_prev = beeper_now;
+                    }
+                }
             }
         }
         else if ((pins & (Z80_RD|Z80_A7|Z80_A6|Z80_A5)) == Z80_RD) {

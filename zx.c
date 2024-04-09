@@ -565,6 +565,11 @@ void init_emulator(void) {
         (1<<KEY_LEFT) | (1<<KEY_RIGHT) | (1<<KEY_UP) | (1<<KEY_DOWN) |
         (1<<KEY_FIRE));
 
+    if (SPEAKER_PIN != -1) {
+        gpio_init(SPEAKER_PIN);
+        gpio_set_dir(SPEAKER_PIN,GPIO_OUT);
+    }
+
     // Enter special mode depending on key presses during power up.
     if (get_device_button(KEY_LEFT)) EMU.debug = 1; // Debugging mode.
     if (get_device_button(KEY_RIGHT)) EMU.emu_clock = 300000; // Less overclock.

@@ -15,6 +15,9 @@
 // value if needed, so that i2c keyboards or joypads can be supported.
 #define get_device_button(pin_num) gpio_get(pin_num)
 
+// Speaker pin, if any
+#define SPEAKER_PIN 5
+
 /* ============================= DISPLAY CONFIGURATION =======================
  * Your ST77xx display bus (SPI vs parallel), pins, rate, ...
  */
