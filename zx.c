@@ -13,7 +13,6 @@
 #define CHIPS_IMPL
 #include "chips_common.h"
 #include "z80.h"
-#include "beeper.h"
 #include "kbd.h"
 #include "clk.h"
 #include "mem.h"
@@ -79,6 +78,7 @@ static struct emustate {
                                 // a settings item is selected instead.
     uint32_t show_border;       // If 0, Spectrum border is not drawn.
     uint32_t scaling;           // Spectrum -> display scaling factor.
+    uint32_t volume;            // Audio volume. Controls PWM value.
 
     // All our UI graphic primitives are automatically cropped
     // to the area selected by ui_set_crop_area().
@@ -108,7 +108,8 @@ struct UISettingsItem {
     {"border", &EMU.show_border, 1, 0, 1, NULL, NULL},
     {"zoom", &EMU.scaling, 0, 0, 0,
         SettingsZoomValues, SettingsZoomValuesNames,
-    }
+    },
+    {"volume", &EMU.volume, 1, 0, 20, NULL, NULL}
 };
 
 #define SettingsListLen (sizeof(SettingsList)/sizeof(SettingsList[0]))
@@ -258,14 +259,16 @@ void ui_change_game(int dir) {
 
 // Called when the UI is active. Handle the key presses needed to select
 // the game and change the overclock.
+//
+// Returns 1 is if some event was processed. Otherwise 0.
 #define UI_DEBOUNCING_TIME 100000
-void ui_handle_key_press(void) {
+int ui_handle_key_press(void) {
     const uint8_t *km = keymap_default;
     static absolute_time_t last_key_accepted_time = 0;
 
     // Debouncing
     absolute_time_t now = get_absolute_time();
-    if (now - last_key_accepted_time < UI_DEBOUNCING_TIME) return;
+    if (now - last_key_accepted_time < UI_DEBOUNCING_TIME) return 0;
 
     int event = -1;
     for (int j = 0; ;j += 3) {
@@ -276,7 +279,7 @@ void ui_handle_key_press(void) {
             break;
         }
     }
-    if (event == -1) return; // No key pressed right now.
+    if (event == -1) return 0; // No key pressed right now.
 
     int value_change_dir = -1;
     switch(event) {
@@ -293,6 +296,7 @@ void ui_handle_key_press(void) {
         break;
     }
     last_key_accepted_time = now;
+    return 1;
 }
 
 // If the menu is active, draw it.
@@ -526,6 +530,19 @@ void flush_zx_key_press(zx_t *zx) {
     for (int j = 0; j < KBD_MAX_KEYS; j++) zx_key_up(zx,j);
 }
 
+// Set the audio volume by altering the PWM counter wrap value.
+// The zx.h file will always set the channel level to 1 or 0
+// (Z80 audio pin high or low), so the greater the counter value
+// the smaller the volume.
+void set_volume(uint32_t volume) {
+    unsigned int slice_num = pwm_gpio_to_slice_num(SPEAKER_PIN);
+    // Volume is in the range 0-20, however the greater the volume
+    // the smaller our wrap value should be in order to increase the
+    // total duty time.
+    pwm_set_wrap(slice_num, 20-volume);
+    pwm_set_enabled(slice_num, volume != 0);
+}
+
 // Initialize the Pico and the Spectrum emulator.
 void init_emulator(void) {
     // Set default configuration.
@@ -538,6 +555,7 @@ void init_emulator(void) {
     EMU.current_game = 0;
     EMU.show_border = 1;
     EMU.scaling = 100;
+    EMU.volume = 5; // 0 to 20 valid values.
     ui_reset_crop_area();
 
     // Pico Init
@@ -568,7 +586,7 @@ void init_emulator(void) {
     if (SPEAKER_PIN != -1) {
         gpio_set_function(SPEAKER_PIN, GPIO_FUNC_PWM);
         unsigned int slice_num = pwm_gpio_to_slice_num(SPEAKER_PIN);
-        pwm_set_wrap(slice_num, 8);
+        set_volume(EMU.volume);
         pwm_set_chan_level(slice_num, PWM_CHAN_A, 1);
         pwm_set_chan_level(slice_num, PWM_CHAN_B, 1);
         pwm_set_enabled(slice_num, true);
@@ -586,8 +604,6 @@ void init_emulator(void) {
     zx_desc_t zx_desc = {0};
     zx_desc.type = ZX_TYPE_48K;
     zx_desc.joystick_type = ZX_JOYSTICKTYPE_KEMPSTON;
-    zx_desc.audio.callback.func = NULL;
-    zx_desc.audio.sample_rate = 0;
     zx_desc.roms.zx48k.ptr = dump_amstrad_zx48k_bin;
     zx_desc.roms.zx48k.size = sizeof(dump_amstrad_zx48k_bin);
     zx_init(&EMU.zx, &zx_desc);
@@ -616,7 +632,9 @@ int main() {
         // them to Spectrum keypresses, or if the user interface is
         // active, pass it to the UI handler.
         if (EMU.menu_active) {
-            ui_handle_key_press();
+            if (ui_handle_key_press()) {
+                set_volume(EMU.volume); // In case it was changed.
+            }
         }
 
         // If the game selection menu is active or just dismissed, we

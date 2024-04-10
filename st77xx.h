@@ -197,7 +197,7 @@ void parallel_write_blocking(void *data, uint32_t datalen) {
         uint8_t byte = d[j];
         // WR clock low
         gpio_put(st77_wr,0);
-        __asm volatile ("nop\n"); __asm volatile ("nop\n");
+        __asm volatile ("nop\n"); // __asm volatile ("nop\n");
 
         // Set byte to D0-D7.
         // Vanilla code would be:

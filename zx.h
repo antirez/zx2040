@@ -22,7 +22,6 @@
 
     - chips/chips_common.h
     - chips/z80.h
-    - chips/beeper.h
     - chips/ay38910.h
     - chips/mem.h
     - chips/kbd.h
@@ -72,8 +71,6 @@ extern "C" {
 // bump this whenever the zx_t struct layout changes
 #define ZX_SNAPSHOT_VERSION (0x0001)
 
-#define ZX_MAX_AUDIO_SAMPLES (1024)      // max number of audio samples in internal sample buffer
-#define ZX_DEFAULT_AUDIO_SAMPLES (128)   // default number of samples in internal sample buffer
 #define ZX_FRAMEBUFFER_WIDTH (320/2) // 4 bits per pixel.
 #define ZX_FRAMEBUFFER_HEIGHT (256)
 #define ZX_FRAMEBUFFER_SIZE_BYTES (ZX_FRAMEBUFFER_WIDTH * ZX_FRAMEBUFFER_HEIGHT)
@@ -104,13 +101,6 @@ typedef enum {
 typedef struct {
     zx_type_t type;                     // default is ZX_TYPE_48K
     zx_joystick_type_t joystick_type;   // what joystick to emulate, default is ZX_JOYSTICK_NONE
-    struct {
-        chips_audio_callback_t callback;
-        int num_samples;
-        int sample_rate;
-        float beeper_volume;
-        float ay_volume;
-    } audio;
     // ROM images
     struct {
         // ZX Spectrum 48K
@@ -121,8 +111,6 @@ typedef struct {
 // ZX emulator state
 typedef struct {
     z80_t cpu;
-    beeper_t beeper;
-    //ay38910_t ay;
     zx_type_t type;
     zx_joystick_type_t joystick_type;
     bool memory_paging_disabled;
@@ -145,12 +133,6 @@ typedef struct {
     uint64_t pins;
     uint64_t freq_hz;
     bool valid;
-    struct {
-        chips_audio_callback_t callback;
-        int num_samples;
-        int sample_pos;
-        float sample_buffer[ZX_MAX_AUDIO_SAMPLES];
-    } audio;
     uint8_t ram[3][0x4000];
     uint8_t rom[2][0x4000];
     uint8_t junk[0x4000];
@@ -211,9 +193,6 @@ void zx_init(zx_t* sys, const zx_desc_t* desc) {
     sys->type = desc->type;
     sys->joystick_type = desc->joystick_type;
     sys->freq_hz = _ZX_48K_FREQUENCY;
-    sys->audio.callback = desc->audio.callback;
-    sys->audio.num_samples = _ZX_DEFAULT(desc->audio.num_samples, ZX_DEFAULT_AUDIO_SAMPLES);
-    CHIPS_ASSERT(sys->audio.num_samples <= ZX_MAX_AUDIO_SAMPLES);
 
     // initalize the hardware
     sys->border_color = 0;
@@ -227,12 +206,6 @@ void zx_init(zx_t* sys, const zx_desc_t* desc) {
 
     sys->pins = z80_init(&sys->cpu);
 
-    const int audio_hz = _ZX_DEFAULT(desc->audio.sample_rate, 44100);
-    beeper_init(&sys->beeper, &(beeper_desc_t){
-        .tick_hz = (int)sys->freq_hz,
-        .sound_hz = audio_hz,
-        .base_volume = _ZX_DEFAULT(desc->audio.beeper_volume, 0.25f),
-    });
     _zx_init_memory_map(sys);
     _zx_init_keyboard_matrix(sys);
 }
@@ -245,7 +218,6 @@ void zx_discard(zx_t* sys) {
 void zx_reset(zx_t* sys) {
     CHIPS_ASSERT(sys && sys->valid);
     sys->pins = z80_reset(&sys->cpu);
-    beeper_reset(&sys->beeper);
     sys->memory_paging_disabled = false;
     sys->kbd_joymask = 0;
     sys->joy_joymask = 0;
@@ -406,16 +378,18 @@ static uint64_t _zx_tick(zx_t* sys, uint64_t pins) {
                 const uint8_t data = Z80_GET_DATA(pins);
                 sys->border_color = data & 7;
                 sys->last_fe_out = data;
-                //beeper_set(&sys->beeper, 0 != (data & (1<<4)));
-                {
-                    static int beeper_prev = 0;
-                    int beeper_now = 0 != (data & (1<<4));
-                    if (beeper_now != beeper_prev) {
-                        unsigned int slice_num = pwm_gpio_to_slice_num(SPEAKER_PIN);
-                        pwm_set_chan_level(slice_num, PWM_CHAN_A, beeper_now);
-                        pwm_set_chan_level(slice_num, PWM_CHAN_B, beeper_now);
-                        beeper_prev = beeper_now;
-                    }
+
+                // Replicate the Z80 audio pin status on the PWM
+                // output.
+                if (SPEAKER_PIN != -1) {
+                    unsigned int slice_num = pwm_gpio_to_slice_num(SPEAKER_PIN);
+                    int beeper_pin = 0 != (data & (1<<4));
+
+                    // We always write just 0 or 1 into the level. The volume
+                    // is controlled by altering the counter wrap value, so
+                    // the duty cycle in percentage will be 1/wrap*100.
+                    pwm_set_chan_level(slice_num, PWM_CHAN_A, beeper_pin);
+                    pwm_set_chan_level(slice_num, PWM_CHAN_B, beeper_pin);
                 }
             }
         }
@@ -425,26 +399,6 @@ static uint64_t _zx_tick(zx_t* sys, uint64_t pins) {
         }
     }
 
-    #if 0
-    // tick the AY at half frequency, use the buffered chip select
-    // pin mask so that the AY doesn't miss any IO requests
-    if (++sys->tick_count & 1) {
-        ay38910_tick(&sys->ay);
-    }
-
-    // tick the beeper
-    if (beeper_tick(&sys->beeper)) {
-        // new sample ready (if this is not a ZX128, sys->ay.sample will be 0)
-        const float sample = sys->beeper.sample; // + sys->ay.sample;
-        sys->audio.sample_buffer[sys->audio.sample_pos++] = sample;
-        if (sys->audio.sample_pos == sys->audio.num_samples) {
-            if (sys->audio.callback.func) {
-                sys->audio.callback.func(sys->audio.sample_buffer, sys->audio.num_samples, sys->audio.callback.user_data);
-            }
-            sys->audio.sample_pos = 0;
-        }
-    }
-    #endif
     return pins;
 }
 
@@ -693,7 +647,6 @@ typedef struct {
     uint8_t rom1;
     uint8_t flags;
     uint8_t out_fffd;
-    uint8_t audio[16];
     uint8_t tlow_l;
     uint8_t tlow_h;
     uint8_t spectator_flags;
@@ -904,8 +857,6 @@ chips_display_info_t zx_display_info(zx_t* sys) {
 uint32_t zx_save_snapshot(zx_t* sys, zx_t* dst) {
     CHIPS_ASSERT(sys && dst);
     *dst = *sys;
-    chips_audio_callback_snapshot_onsave(&dst->audio.callback);
-    //ay38910_snapshot_onsave(&dst->ay);
     mem_snapshot_onsave(&dst->mem, sys);
     return ZX_SNAPSHOT_VERSION;
 }
@@ -917,8 +868,6 @@ bool zx_load_snapshot(zx_t* sys, uint32_t version, zx_t* src) {
     }
     static zx_t im;
     im = *src;
-    chips_audio_callback_snapshot_onload(&im.audio.callback, &sys->audio.callback);
-    //ay38910_snapshot_onload(&im.ay, &sys->ay);
     mem_snapshot_onload(&im.mem, sys);
     *sys = im;
     return true;

@@ -15,7 +15,7 @@
 // value if needed, so that i2c keyboards or joypads can be supported.
 #define get_device_button(pin_num) gpio_get(pin_num)
 
-// Speaker pin, if any
+// Speaker pin, if any. We use the pin in PWM mode.
 #define SPEAKER_PIN 5
 
 /* ============================= DISPLAY CONFIGURATION =======================
