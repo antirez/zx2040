@@ -126,6 +126,18 @@ typedef struct {
     int scanline_period;
     int scanline_counter;
     int scanline_y;
+
+    // Audio state: this is RP2040 specific code. We sample the speaker
+    // value in a bitmap (audiobuf), since anyway the Spectrum sound is
+    // 1 bit, even if at high resolution.
+#define AUDIOBUF_LEN 256 // Must be power of 2
+    int beeper_state;           // Last value written to the speaker bit.
+    uint32_t audiobuf[AUDIOBUF_LEN];    // 1 bit samples audio buffer.
+    uint32_t audiobuf_byte;             // Current byte to write.
+    uint32_t audiobuf_bit;              // Current bit to write.
+    volatile uint32_t audiobuf_notify;  // Just a brutal inter-process signal.
+    absolute_time_t audiobuf_start_t;   // Time when the first sample was set.
+
     int int_counter;
     uint32_t display_ram_bank;
     kbd_t kbd;
@@ -208,6 +220,12 @@ void zx_init(zx_t* sys, const zx_desc_t* desc) {
 
     _zx_init_memory_map(sys);
     _zx_init_keyboard_matrix(sys);
+
+    // Audio initialization
+    memset(sys->audiobuf,0,sizeof(sys->audiobuf));
+    sys->audiobuf_byte = 0;
+    sys->audiobuf_bit = 0;
+    sys->audiobuf_notify = 0;
 }
 
 void zx_discard(zx_t* sys) {
@@ -379,18 +397,9 @@ static uint64_t _zx_tick(zx_t* sys, uint64_t pins) {
                 sys->border_color = data & 7;
                 sys->last_fe_out = data;
 
-                // Replicate the Z80 audio pin status on the PWM
-                // output.
-                if (SPEAKER_PIN != -1) {
-                    unsigned int slice_num = pwm_gpio_to_slice_num(SPEAKER_PIN);
-                    int beeper_pin = 0 != (data & (1<<4));
-
-                    // We always write just 0 or 1 into the level. The volume
-                    // is controlled by altering the counter wrap value, so
-                    // the duty cycle in percentage will be 1/wrap*100.
-                    pwm_set_chan_level(slice_num, PWM_CHAN_A, beeper_pin);
-                    pwm_set_chan_level(slice_num, PWM_CHAN_B, beeper_pin);
-                }
+                // Replicate the Z80 audio pin status on the global state
+                // so we can sample it at regular intervals.
+                sys->beeper_state = 0 != (data & (1<<4));
             }
         }
         else if ((pins & (Z80_RD|Z80_A7|Z80_A6|Z80_A5)) == Z80_RD) {
@@ -415,6 +424,30 @@ uint32_t zx_exec(zx_t* sys, uint32_t micro_seconds) {
         // write on the VMEM at random times I guess.
         if (num_ticks-tick < tick/8 && sys->scanline_y > 290) break;
         #endif
+
+        // Audio buffer handling.
+        if (SPEAKER_PIN != -1 && !(tick & 0xf)) {
+            // Fill sample.
+            sys->audiobuf[sys->audiobuf_byte] &=
+                ~(((uint32_t)1)<<sys->audiobuf_bit);
+            sys->audiobuf[sys->audiobuf_byte] |=
+                sys->beeper_state<<sys->audiobuf_bit;
+
+            // Go to next byte/bit
+            sys->audiobuf_bit = (sys->audiobuf_bit+1) & 31; // Incr modulo 32.
+            if (sys->audiobuf_bit == 0)
+                sys->audiobuf_byte = (sys->audiobuf_byte+1) & (AUDIOBUF_LEN-1);
+
+            // Buffer full (back to zero after increment)? Set the timestamp
+            // and ping the other thread that plays the samples.
+            if ((sys->audiobuf_byte == 0 ||
+                 sys->audiobuf_byte == AUDIOBUF_LEN/2) &&
+                 sys->audiobuf_bit == 0)
+            {
+                // audiobuf_notify will be cleared by other thread.
+                sys->audiobuf_notify = sys->audiobuf_byte == 0 ? 2 : 1;
+            }
+        }
     }
     sys->pins = pins;
     kbd_update(&sys->kbd, micro_seconds);

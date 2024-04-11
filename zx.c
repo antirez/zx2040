@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include "pico/stdlib.h"
+#include "pico/multicore.h"
 #include "hardware/vreg.h"
 
 #include "device_config.h" // Hardware-specific defines for ST77 and keys.
@@ -78,7 +79,11 @@ static struct emustate {
                                 // a settings item is selected instead.
     uint32_t show_border;       // If 0, Spectrum border is not drawn.
     uint32_t scaling;           // Spectrum -> display scaling factor.
+
+    // Audio related
     uint32_t volume;            // Audio volume. Controls PWM value.
+    volatile uint32_t audio_sample_wait; // Wait time (in busy loop cycles)
+                                         // between samples when playing back.
 
     // All our UI graphic primitives are automatically cropped
     // to the area selected by ui_set_crop_area().
@@ -109,7 +114,8 @@ struct UISettingsItem {
     {"zoom", &EMU.scaling, 0, 0, 0,
         SettingsZoomValues, SettingsZoomValuesNames,
     },
-    {"volume", &EMU.volume, 1, 0, 20, NULL, NULL}
+    {"volume", &EMU.volume, 1, 0, 20, NULL, NULL},
+    {"sync", (uint32_t*)&EMU.audio_sample_wait, 5, 0, 1000, NULL, NULL}
 };
 
 #define SettingsListLen (sizeof(SettingsList)/sizeof(SettingsList[0]))
@@ -555,7 +561,8 @@ void init_emulator(void) {
     EMU.current_game = 0;
     EMU.show_border = 1;
     EMU.scaling = 100;
-    EMU.volume = 5; // 0 to 20 valid values.
+    EMU.volume = 20; // 0 to 20 valid values.
+    EMU.audio_sample_wait = 270; // Adjusted dynamically.
     ui_reset_crop_area();
 
     // Pico Init
@@ -571,7 +578,7 @@ void init_emulator(void) {
 
     // Overclocking
     vreg_set_voltage(VREG_VOLTAGE_1_30);
-    set_sys_clock_khz(EMU.base_clock, false);
+    set_sys_clock_khz(EMU.emu_clock, false);
 
     // Keys pin initialization
     gpio_init(KEY_LEFT);
@@ -612,18 +619,81 @@ void init_emulator(void) {
 /* Load the specified game ID. The ID is just the index in the
  * games table. As a side effect, sets the keymap. */
 void load_game(int game_id) {
+    set_sys_clock_khz(EMU.base_clock, false); sleep_us(50);
     struct game_entry *g = &GamesTable[game_id];
     chips_range_t r = {.ptr=g->addr, .size=g->size};
     flush_zx_key_press(&EMU.zx); // Make sure no keys are down.
     EMU.current_keymap = g->map;
     EMU.tick = 0;
     zx_quickload(&EMU.zx, r);
+    set_sys_clock_khz(EMU.emu_clock, false); sleep_us(50);
+}
+
+// This thread takes audio data from the main thread emulator context
+// and reproduces it on the sound pin.
+void core1_play_audio(void) {
+    absolute_time_t start, end;
+    unsigned int slice_num = pwm_gpio_to_slice_num(SPEAKER_PIN);
+
+    // The length of the pause may need to be adjusted when
+    // compiling with different compilers. Would be better to
+    // write the pause loop later in assembly.
+    //
+    // Also this pause depends on the sampling rate we do
+    // in zx.h.
+    int oldlevel = 0;
+
+    while(1) {
+        // Wait for new buffer chunk to be available.
+        start = get_absolute_time();
+        while(EMU.zx.audiobuf_notify == 0);
+        end = get_absolute_time();
+        if (EMU.debug)
+            printf("[playback] waiting %llu [%u]\n",
+                end-start, EMU.zx.audiobuf_notify);
+        if (end-start == 0) EMU.audio_sample_wait--;
+        else if (end-start > 1000) EMU.audio_sample_wait++;
+
+        // Seek the right part of the buffer. We use double buffering
+        // splitting the buffer in two. This is needed as memcpy()-ing
+        // to our buffer is already a substantian delay, and would not
+        // require less memory.
+        uint32_t *buf = EMU.zx.audiobuf;
+        buf += (EMU.zx.audiobuf_notify-1)*(AUDIOBUF_LEN/2);
+        EMU.zx.audiobuf_notify = 0; // Clear notification flag.
+
+        // Play samples.
+        start = get_absolute_time();
+        for (uint32_t byte = 0; byte < AUDIOBUF_LEN/2; byte++) {
+            for (uint32_t bit = 0; bit < 32; bit++) {
+                int level = (buf[byte] & (1<<bit)) >> bit;
+                if (level != oldlevel) {
+                    pwm_set_chan_level(slice_num, PWM_CHAN_A, level);
+                    pwm_set_chan_level(slice_num, PWM_CHAN_B, level);
+                    oldlevel = level;
+                }
+
+                // Wait some time.
+                for (volatile int k = 0; k < EMU.audio_sample_wait; k++);
+
+                // Stop if there was a buffer overrun. Very unlikely.
+                // if (EMU.zx.audiobuf_notify != 0) goto stoploop;
+            }
+        }
+        stoploop:
+        end = get_absolute_time();
+        if (EMU.debug)
+            printf("[playback] with pause=%u playing took %llu [notify:%u]\n",
+                EMU.audio_sample_wait, end-start, EMU.zx.audiobuf_notify);
+    }
 }
 
 int main() {
     init_emulator();
     st77xx_fill(0);
     load_game(EMU.current_game);
+
+    if (SPEAKER_PIN != -1) multicore_launch_core1(core1_play_audio);
 
     while (true) {
         absolute_time_t start, end;
@@ -645,12 +715,11 @@ int main() {
         handle_zx_key_press(&EMU.zx, EMU.current_keymap, EMU.tick, kflags);
 
         // Run the Spectrum VM for a few ticks.
-        set_sys_clock_khz(EMU.emu_clock, false); sleep_us(50);
         start = get_absolute_time();
         zx_exec(&EMU.zx, FRAME_USEC);
         end = get_absolute_time();
-        printf("zx_exec(): %llu us\n",(unsigned long long)end-start);
-        set_sys_clock_khz(EMU.base_clock, false); sleep_us(50);
+        printf("[core] zx_exec(%d): %llu us\n",
+            FRAME_USEC, (unsigned long long)end-start);
 
         // Handle the menu.
         if (EMU.menu_active) {
@@ -669,8 +738,9 @@ int main() {
         start = get_absolute_time();
         update_display(EMU.scaling,EMU.show_border);
         end = get_absolute_time();
-        printf("update_display(): %llu us\n",(unsigned long long)end-start);
-        printf("scanline_y: %d\n",EMU.zx.scanline_y);
+        if (EMU.debug)
+            printf("[display] update_display(): %llu us\n",
+                (unsigned long long)end-start);
 
         EMU.tick++;
     }
