@@ -308,32 +308,34 @@ int ui_handle_key_press(void) {
 // If the menu is active, draw it.
 void ui_draw_menu(void) {
     // Draw the menu in the right / top part of the screen.
-    int font_size = 2;
     int menu_x = st77_width/2;
     int menu_w = st77_width/2-5;
     int menu_y = 32; // Skip border in case it's not displayed.
     int menu_h = (st77_height/3*2); // Use 2/3 of height.
+    int font_size = 2;
     menu_h -= menu_h&(8*font_size-1); // Make multiple of font pixel size;
     int vpad = 2;       // Vertical padding of text inside the box.
     menu_h += vpad*2;   // Allow for pixels padding / top bottom.
-    int listlen = (menu_h-vpad*2)/(8*font_size); // Number of items we can list.
 
     ui_fill_box(menu_x, menu_y, menu_w, menu_h, 0, 15);
     ui_set_crop_area(menu_x+1,menu_x+menu_w-2,
                      menu_y+1,menu_y+menu_h-2);
 
-    int count = 0;
-    int first_game = (int)EMU.current_game - listlen + 1;
-    if (first_game < -SettingsListLen) first_game = -SettingsListLen;
+    int first_game = (int)EMU.current_game - 5;
+    int num_settings = (int)SettingsListLen;
+    if (first_game < -num_settings) first_game = -num_settings;
+    printf("%d\n", first_game);
+    int y = menu_y+vpad; // Incremented as we write text.
     for (int j = first_game;; j++) {
-        if (j >= (int)GamesTableSize || count >= listlen) break;
+        if (j >= (int)GamesTableSize || y > menu_y+menu_h) break;
 
         int color = j >= 0 ? 4 : 6;
+        font_size = j >= 0 ? 2 : 1;
+
         // Highlight the currently selected game, with a box of the color
         // of the font, and the black font (so basically the font is inverted).
         if (j == EMU.current_game) {
-            ui_fill_box(menu_x+2,menu_y+2+count*(8*font_size),menu_w-2,
-                        font_size*8,color,color);
+            ui_fill_box(menu_x+2,y,menu_w-2,font_size*8,color,color);
             color = 0;
         }
         if (j < 0) {
@@ -341,14 +343,12 @@ void ui_draw_menu(void) {
             struct UISettingsItem *si = &SettingsList[-j-1];
             char sistr[32];
             settings_to_string(sistr,sizeof(sistr),-j-1);
-            ui_draw_string(menu_x+2,menu_y+2+count*(8*font_size),   
-                sistr,color,font_size);
+            ui_draw_string(menu_x+2,y,sistr,color,font_size);
         } else {
             // Show game item.
-            ui_draw_string(menu_x+2,menu_y+2+count*(8*font_size),   
-                GamesTable[j].name,color,font_size);
+            ui_draw_string(menu_x+2,y,GamesTable[j].name,color,font_size);
         }
-        count++;
+        y += 8*font_size;
     }
     ui_reset_crop_area();
 }
