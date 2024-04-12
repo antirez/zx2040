@@ -75,8 +75,10 @@ static struct emustate {
     // Is the game selection / config menu shown?
     int menu_active;
     uint32_t menu_left_at_tick; // EMU.tick when the menu was closed.
-    int current_game;           // Game index in the menu. If less than 0
-                                // a settings item is selected instead.
+    int selected_game;          // Game index of currently selected game in
+                                // the UI. If less than 0 a settings item is
+                                // selected instead.
+    int loaded_game;            // Game index of the game currently loaded.
     uint32_t show_border;       // If 0, Spectrum border is not drawn.
     uint32_t scaling;           // Spectrum -> display scaling factor.
 
@@ -251,16 +253,13 @@ void ui_draw_string(uint16_t px, uint16_t py, const char *s, uint8_t color, uint
 }
 
 // Load the prev/next game in the list (dir = -1 / 1).
-void ui_change_game(int dir) {
-    EMU.current_game += dir;
-    if (EMU.current_game == -SettingsListLen-1) {
-        EMU.current_game = GamesTableSize-1;
-    } else if (EMU.current_game == GamesTableSize) {
-        EMU.current_game = -SettingsListLen;
+void ui_go_next_prev_game(int dir) {
+    EMU.selected_game += dir;
+    if (EMU.selected_game == -SettingsListLen-1) {
+        EMU.selected_game = GamesTableSize-1;
+    } else if (EMU.selected_game == GamesTableSize) {
+        EMU.selected_game = -SettingsListLen;
     }
-    // Negative indexes are settings items. The game
-    // list starts at index 0.
-    if (EMU.current_game >= 0) load_game(EMU.current_game);
 }
 
 // Called when the UI is active. Handle the key presses needed to select
@@ -289,16 +288,20 @@ int ui_handle_key_press(void) {
 
     int value_change_dir = -1;
     switch(event) {
-    case KEMPSTONE_UP: ui_change_game(-1); break;
-    case KEMPSTONE_DOWN: ui_change_game(1); break;
+    case KEMPSTONE_UP: ui_go_next_prev_game(-1); break;
+    case KEMPSTONE_DOWN: ui_go_next_prev_game(1); break;
     case KEMPSTONE_RIGHT: value_change_dir = 1; // fall through.
     case KEMPSTONE_LEFT:
-        if (EMU.current_game < 0)
-            settings_change_value(-EMU.current_game-1,value_change_dir);
+        if (EMU.selected_game < 0)
+            settings_change_value(-EMU.selected_game-1,value_change_dir);
         break;
     case KEMPSTONE_FIRE:
-        EMU.menu_active = 0;
-        EMU.menu_left_at_tick = EMU.tick;
+        if (EMU.selected_game == EMU.loaded_game) {
+            EMU.menu_active = 0;
+            EMU.menu_left_at_tick = EMU.tick;
+        } else if (EMU.selected_game >= 0) {
+            load_game(EMU.selected_game);
+        }
         break;
     }
     last_key_accepted_time = now;
@@ -321,7 +324,7 @@ void ui_draw_menu(void) {
     ui_set_crop_area(menu_x+1,menu_x+menu_w-2,
                      menu_y+1,menu_y+menu_h-2);
 
-    int first_game = (int)EMU.current_game - 5;
+    int first_game = (int)EMU.selected_game - 5;
     int num_settings = (int)SettingsListLen;
     if (first_game < -num_settings) first_game = -num_settings;
     printf("%d\n", first_game);
@@ -334,7 +337,7 @@ void ui_draw_menu(void) {
 
         // Highlight the currently selected game, with a box of the color
         // of the font, and the black font (so basically the font is inverted).
-        if (j == EMU.current_game) {
+        if (j == EMU.selected_game) {
             ui_fill_box(menu_x+2,y,menu_w-2,font_size*8,color,color);
             color = 0;
         }
@@ -558,7 +561,7 @@ void init_emulator(void) {
     EMU.emu_clock = 400000;
     EMU.tick = 0;
     EMU.current_keymap = keymap_default;
-    EMU.current_game = 0;
+    EMU.selected_game = 0;
     EMU.show_border = 1;
     EMU.scaling = 100;
     EMU.volume = 20; // 0 to 20 valid values.
@@ -626,6 +629,7 @@ void load_game(int game_id) {
     EMU.current_keymap = g->map;
     EMU.tick = 0;
     zx_quickload(&EMU.zx, r);
+    EMU.loaded_game = game_id;
     set_sys_clock_khz(EMU.emu_clock, false); sleep_us(50);
 }
 
@@ -691,7 +695,7 @@ void core1_play_audio(void) {
 int main() {
     init_emulator();
     st77xx_fill(0);
-    load_game(EMU.current_game);
+    load_game(EMU.selected_game);
 
     if (SPEAKER_PIN != -1) multicore_launch_core1(core1_play_audio);
 
