@@ -327,7 +327,7 @@ void ui_draw_menu(void) {
     int first_game = (int)EMU.selected_game - 5;
     int num_settings = (int)SettingsListLen;
     if (first_game < -num_settings) first_game = -num_settings;
-    printf("%d\n", first_game);
+
     int y = menu_y+vpad; // Incremented as we write text.
     for (int j = first_game;; j++) {
         if (j >= (int)GamesTableSize || y > menu_y+menu_h) break;
@@ -700,7 +700,7 @@ int main() {
     if (SPEAKER_PIN != -1) multicore_launch_core1(core1_play_audio);
 
     while (true) {
-        absolute_time_t start, end;
+        absolute_time_t start, zx_exec_time, update_time;
 
         // Handle key presses on the phisical device. Either translate
         // them to Spectrum keypresses, or if the user interface is
@@ -721,9 +721,7 @@ int main() {
         // Run the Spectrum VM for a few ticks.
         start = get_absolute_time();
         zx_exec(&EMU.zx, FRAME_USEC);
-        end = get_absolute_time();
-        printf("[core] zx_exec(%d): %llu us\n",
-            FRAME_USEC, (unsigned long long)end-start);
+        zx_exec_time = get_absolute_time()-start;
 
         // Handle the menu.
         if (EMU.menu_active) {
@@ -741,11 +739,12 @@ int main() {
         // Update the display with the current CRT image.
         start = get_absolute_time();
         update_display(EMU.scaling,EMU.show_border);
-        end = get_absolute_time();
-        if (EMU.debug)
-            printf("[display] update_display(): %llu us\n",
-                (unsigned long long)end-start);
+        update_time = get_absolute_time()-start;
 
         EMU.tick++;
+        printf("display: %llu us, zx(%u): %llu us, FPS: %.1f\n",
+            update_time,
+            FRAME_USEC, zx_exec_time,
+            1000000.0/(float)(zx_exec_time+update_time));
     }
 }
