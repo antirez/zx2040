@@ -25,7 +25,18 @@ Another driver for this project was that I needed to explore a bit more the Pico
 
 Hopefully, thanks to the awesome Spectrum implementation written by Andre, and my hopefully clear modifications and UI code, this repository will be very simple to try, understand, modify.
 
-## Hardware and installation
+## Hardware
+
+## Installation from sources
+
+If you build from sources:
+
+* Create a `device_config.h` file in the main directory. For the Pimoroni Tufty2040 just do `cp devices/tufty2040.h device_config.h`. Otherwise if you have some different board, or you made one by hand with a Pico and an ST77xx display, just check the examples under the `device` directory and create a configuration: it's easy, just define your pins and display interface (SPI/parallel).
+* Compile with: `mkdir build; cd build; cmake ..; make`.
+* Transfer the zx.uf2 file to your Pico (put it in boot mode pressing the boot button as you power up the device, then drag the file in the `RPI-RP2` drive you see as USB disk).
+* Transfer the games images on the flash. Enter the `games` directory, put the Pico in boot mode (again) and run the `loadgames.py` Python program. Note that you need `picotool` installed (pip install picotool, or alike).
+
+## Installation from pre-built images
 
 ## Displays update latency
 
