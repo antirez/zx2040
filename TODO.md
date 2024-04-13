@@ -1,10 +1,17 @@
-* Screen offset, and ability to scale, even removing borders.
-* Use Pico PWM to model audio without resorting to actual emulation.
+* Ability to center the screen when downscaling is used. If it does not make refreshing much slower, fill the remaining area picking the last border set from the emulator ULA state.
 * Use Pico PWM for screen brightness.
-* Allow to change the clock from the menu.
+* In the Tufty 2040, use the light sensor to adjust screen brightness.
 * Allow to change brightness from the menu.
-* Start with a lower default clock if left key is pressed on boot
-* Start in debugging mode if right key is pressed on boot.
-* Many more games.
+* Many more games with well designed key maps.
 * Find a way to put code + game into the same UF2 image.
-* Extended key maps for games like Skool Daze, where you can press multiple device keys to map to different Spectrum keys.
+
+## Hardware
+
+* Design ZX Spectrum cover for the Tufty 2040. Provide STL file.
+* Try other speakers other than the piezo that the Pi pin can drive but with less horrible frequency response.
+
+## Documentation
+
+* Document all the stuff into the device configuration file.
+* Document how to change the number of ticks the emulator runs before screen updates in order to match the Spectrum native speed in case of a slow display or less overclocking.
+* Document keymaps.
