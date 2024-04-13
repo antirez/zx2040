@@ -402,17 +402,17 @@ void update_display(uint32_t scaling, uint32_t border) {
     uint32_t y_dup_mask = 0xffff; // no dup/skip.
     uint32_t dup = 1; // Duplicate or skip? Scaling > 100 dup, < 100 skip.
     switch (scaling) {
-        // Upscaling.
-        case 150: x_dup_mask = 0; y_dup_mask = 1; break;
-        case 125: x_dup_mask = 1; y_dup_mask = 3; break;
-        case 112: x_dup_mask = 3; y_dup_mask = 7; break;
-
         // Downscaling
         case 50: x_dup_mask = 0; y_dup_mask = 1; dup = 0; break;
         case 75: x_dup_mask = 1; y_dup_mask = 3; dup = 0; break;
         case 84: x_dup_mask = 3; y_dup_mask = 7; dup = 0; break;
+ 
+        // Upscaling.
+        case 112: x_dup_mask = 3; y_dup_mask = 7; break;
+        case 125: x_dup_mask = 1; y_dup_mask = 3; break;
+        case 150: x_dup_mask = 0; y_dup_mask = 1; break;
 
-        // 100 or any other value: no scaling.
+       // 100 or any other value: no scaling.
         case 100:
         default: scaling = 0; break;
     }
@@ -466,19 +466,25 @@ void update_display(uint32_t scaling, uint32_t border) {
             }
             xx++;
         }
-        st77xx_setwin(0, y, st77_width-1, y);
-        st77xx_data(line,sizeof(line)-2); // -2 to account for the extra pixel
-                                          // allocated above.
-        // Duplicate/skip row according to scaling mask.
+
         if (((yy+1)&y_dup_mask) == 0) {
+            // Duplicate/skip row according to scaling mask.
             if (dup) {
+                st77xx_setwin(0, y, st77_width-1, y);
+                st77xx_data(line,sizeof(line)-2);
                 y++;
                 st77xx_setwin(0, y, st77_width-1, y);
                 st77xx_data(line,sizeof(line)-2);
             } else {
-                crt += 160; // Skip row.
+                y--;    // Skip row.
             }
+        } else {
+            // If scaling does not affect this line, just
+            // write it to the display.
+            st77xx_setwin(0, y, st77_width-1, y);
+            st77xx_data(line,sizeof(line)-2);
         }
+
         crt += 160; yy++; // Next row.
         if (crt >= EMU.zx.fb+ZX_FRAMEBUFFER_SIZE_BYTES) break;
     }
