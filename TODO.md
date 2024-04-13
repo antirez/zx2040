@@ -9,6 +9,7 @@
 
 * Design ZX Spectrum cover for the Tufty 2040. Provide STL file.
 * Try other speakers other than the piezo that the Pi pin can drive but with less horrible frequency response.
+* Abstract extended keymaps in the device configuration, so that if there are devices with more keys, we can use them. For instance the Pimoroni PicoSystem has 4 buttons other than the directions.
 
 ## Documentation
 

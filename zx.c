@@ -98,7 +98,7 @@ static struct emustate {
 // user interface.
 
 const uint32_t SettingsZoomValues[] = {50,75,84,100,112,125,150};
-const char *SettingsZoomValuesNames[] = {"100%","112%","125%","150%",NULL};
+const char *SettingsZoomValuesNames[] = {"50%","75%","84%","100%","112%","125%","150%",NULL};
 struct UISettingsItem {
     const char *name;   // Name of the setting.
     uint32_t *ptr;      // Pointer to the variable of the setting.
@@ -410,7 +410,7 @@ void update_display(uint32_t scaling, uint32_t border) {
         // Downscaling
         case 50: x_dup_mask = 0; y_dup_mask = 1; dup = 0; break;
         case 75: x_dup_mask = 1; y_dup_mask = 3; dup = 0; break;
-        case 83: x_dup_mask = 3; y_dup_mask = 7; dup = 0; break;
+        case 84: x_dup_mask = 3; y_dup_mask = 7; dup = 0; break;
 
         // 100 or any other value: no scaling.
         case 100:
