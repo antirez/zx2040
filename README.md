@@ -25,7 +25,9 @@ Another driver for this project was that I needed to explore a bit more the Pico
 
 Hopefully, thanks to the awesome Spectrum implementation written by Andre, and my hopefully clear modifications and UI code, this repository will be very simple to try, understand, modify.
 
-## Installation
+## Hardware and installation
+
+## Displays update latency
 
 ## Usage
 
