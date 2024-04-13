@@ -18,28 +18,14 @@
 // Speaker pin, if any. We use the pin in PWM mode.
 #define SPEAKER_PIN 5
 
-/* ============================= DISPLAY CONFIGURATION =======================
- * Your ST77xx display bus (SPI vs parallel), pins, rate, ...
- */
+/* ============================= DISPLAY CONFIGURATION ====================== */
 
-// Make sure to uncomment only one of the following lines, to select SPI or
-// parallel-8 bus.
+#define DEFAULT_DISPLAY_SCALING 125 // Not all values possible. See README.
+#define DEFAULT_DISPLAY_BORDERS 0   // 0 = no borders. 1 = borders.
+
 
 // #define st77_use_spi
 #define st77_use_parallel
-
-// SPI configuration
-#ifdef st77_use_spi
-#define spi_rate 40000000
-#define spi_phase 1
-#define spi_polarity 1
-#define spi_channel spi0
-#define st77_sck 2
-#define st77_mosi 3
-#define st77_rst 7
-#define st77_dc 6
-#define st77_cs -1
-#endif
 
 // Parallel 8 bit configuration
 #ifdef st77_use_parallel
@@ -64,3 +50,5 @@
 #define st77_inversion 1
 #define st77_offset_x 0
 #define st77_offset_y 0
+
+/* === END OF CONFIG === */

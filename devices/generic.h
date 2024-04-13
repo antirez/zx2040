@@ -25,6 +25,9 @@
  * Your ST77xx display bus (SPI vs parallel), pins, rate, ...
  */
 
+#define DEFAULT_DISPLAY_SCALING 100  // Not all values possible. See README.
+#define DEFAULT_DISPLAY_BORDERS 1    // 0 = no borders. 1 = borders.
+
 // Make sure to uncomment only one of the following lines, to select SPI or
 // parallel-8 bus.
 

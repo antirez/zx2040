@@ -97,7 +97,7 @@ static struct emustate {
 // Numerical parameters that it is possible to change using the
 // user interface.
 
-const uint32_t SettingsZoomValues[] = {100,112,125,150};
+const uint32_t SettingsZoomValues[] = {50,75,84,100,112,125,150};
 const char *SettingsZoomValuesNames[] = {"100%","112%","125%","150%",NULL};
 struct UISettingsItem {
     const char *name;   // Name of the setting.
@@ -377,13 +377,15 @@ uint16_t palette_to_565(uint32_t color) {
 // an overscaled Spectrum image to the ST77xx dispaly. This is useful in order
 // to accomodate different display sizes.
 //
-//
 // Valid scaling arguments:
 //
-// 100: no scaling
-// 112: 112% scaling
-// 125: 125% scaling
-// 150: 150% scaling
+// 100 (or any other invalid value): no scaling
+// 112: 112% upscaling
+// 125: 125% upscaling
+// 150: 150% upscaling
+// 50: 50% downscaling
+// 75: 75% downscaling
+// 83: 83% downscaling
 //
 // BORDERS:
 // If border is false, borders are not drawn at all.
@@ -395,13 +397,22 @@ void update_display(uint32_t scaling, uint32_t border) {
 
     uint8_t *crt = EMU.zx.fb;
 
-    // Configure scaling: we duplicate a column/row every N cols/rows.
-    uint32_t x_dup_mask = 0xffff; // no dup.
-    uint32_t y_dup_mask = 0xffff; // no dup.
+    // Configure scaling: we duplicate/skip a column/row every N cols/rows.
+    uint32_t x_dup_mask = 0xffff; // no dup/skip.
+    uint32_t y_dup_mask = 0xffff; // no dup/skip.
+    uint32_t dup = 1; // Duplicate or skip? Scaling > 100 dup, < 100 skip.
     switch (scaling) {
+        // Upscaling.
         case 150: x_dup_mask = 0; y_dup_mask = 1; break;
         case 125: x_dup_mask = 1; y_dup_mask = 3; break;
         case 112: x_dup_mask = 3; y_dup_mask = 7; break;
+
+        // Downscaling
+        case 50: x_dup_mask = 0; y_dup_mask = 1; dup = 0; break;
+        case 75: x_dup_mask = 1; y_dup_mask = 3; dup = 0; break;
+        case 83: x_dup_mask = 3; y_dup_mask = 7; dup = 0; break;
+
+        // 100 or any other value: no scaling.
         case 100:
         default: scaling = 0; break;
     }
@@ -414,10 +425,18 @@ void update_display(uint32_t scaling, uint32_t border) {
     uint32_t zx_width = ZX_DISPLAY_WIDTH - 64*(!border);
     if (scaling) {
         // Adjust virtual Spectrum framebuffer size by scaling.
-        zx_height = (zx_height*(y_dup_mask+2)) / (y_dup_mask+1);
-        zx_width = (zx_width*(y_dup_mask+2)) / (y_dup_mask+1);
+        if (dup) {
+            // scaling > 100%
+            zx_height = (zx_height*(y_dup_mask+2)) / (y_dup_mask+1);
+            zx_width = (zx_width*(y_dup_mask+2)) / (y_dup_mask+1);
+        } else {
+            // scaling < 100%
+            zx_height = (zx_height*(y_dup_mask+1)) / (y_dup_mask+2);
+            zx_width = (zx_width*(y_dup_mask+1)) / (y_dup_mask+2);
+        }
     }
 
+    // Centering.
     if (st77_height < zx_height)
         crt += 160*((zx_height-st77_height)>>1);
     if (st77_width < zx_width)
@@ -436,21 +455,29 @@ void update_display(uint32_t scaling, uint32_t border) {
         for (uint32_t x = 0; x < st77_width && xx < 160; x += 2) {
             line[x] = zxpalette[(p[xx]>>4)&0xf];
             line[x+1] = zxpalette[p[xx]&0xf];
-            // Duplicate pixel according to scaling mask.
+            // Duplicate/skip pixel according to scaling mask.
             if (((xx+1)&x_dup_mask) == 0) {
-                line[x+2] = line[x+1];
-                x++;
+                if (dup) {
+                    line[x+2] = line[x+1];
+                    x++;
+                } else {
+                    x--; // Skip col.
+                }
             }
             xx++;
         }
         st77xx_setwin(0, y, st77_width-1, y);
         st77xx_data(line,sizeof(line)-2); // -2 to account for the extra pixel
                                           // allocated above.
-        // Duplicating row according to scaling mask.
+        // Duplicate/skip row according to scaling mask.
         if (((yy+1)&y_dup_mask) == 0) {
-            y++;
-            st77xx_setwin(0, y, st77_width-1, y);
-            st77xx_data(line,sizeof(line)-2);
+            if (dup) {
+                y++;
+                st77xx_setwin(0, y, st77_width-1, y);
+                st77xx_data(line,sizeof(line)-2);
+            } else {
+                crt += 160; // Skip row.
+            }
         }
         crt += 160; yy++; // Next row.
         if (crt >= EMU.zx.fb+ZX_FRAMEBUFFER_SIZE_BYTES) break;
@@ -562,8 +589,8 @@ void init_emulator(void) {
     EMU.tick = 0;
     EMU.current_keymap = keymap_default;
     EMU.selected_game = 0;
-    EMU.show_border = 1;
-    EMU.scaling = 100;
+    EMU.show_border = DEFAULT_DISPLAY_BORDERS;
+    EMU.scaling = DEFAULT_DISPLAY_SCALING;
     EMU.volume = 20; // 0 to 20 valid values.
     EMU.audio_sample_wait = 270; // Adjusted dynamically.
     ui_reset_crop_area();
