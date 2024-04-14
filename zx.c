@@ -618,7 +618,7 @@ void init_emulator(void) {
     EMU.show_border = DEFAULT_DISPLAY_BORDERS;
     EMU.scaling = DEFAULT_DISPLAY_SCALING;
     EMU.volume = 20; // 0 to 20 valid values.
-    EMU.audio_sample_wait = 270; // Adjusted dynamically.
+    EMU.audio_sample_wait = 320; // Adjusted dynamically.
     ui_reset_crop_area();
 
     // Pico Init
@@ -649,9 +649,9 @@ void init_emulator(void) {
     if (SPEAKER_PIN != -1) {
         gpio_set_function(SPEAKER_PIN, GPIO_FUNC_PWM);
         unsigned int slice_num = pwm_gpio_to_slice_num(SPEAKER_PIN);
+        unsigned int pwm_channel = pwm_gpio_to_channel(SPEAKER_PIN);
         set_volume(EMU.volume);
-        pwm_set_chan_level(slice_num, PWM_CHAN_A, 1);
-        pwm_set_chan_level(slice_num, PWM_CHAN_B, 1);
+        pwm_set_chan_level(slice_num, pwm_channel, 0);
         pwm_set_enabled(slice_num, true);
     }
 
@@ -691,6 +691,7 @@ void load_game(int game_id) {
 void core1_play_audio(void) {
     absolute_time_t start, end;
     unsigned int slice_num = pwm_gpio_to_slice_num(SPEAKER_PIN);
+    unsigned int pwm_channel = pwm_gpio_to_channel(SPEAKER_PIN);
 
     // The length of the pause may need to be adjusted when
     // compiling with different compilers. Would be better to
@@ -725,8 +726,7 @@ void core1_play_audio(void) {
             for (uint32_t bit = 0; bit < 32; bit++) {
                 int level = (buf[byte] & (1<<bit)) >> bit;
                 if (level != oldlevel) {
-                    pwm_set_chan_level(slice_num, PWM_CHAN_A, level);
-                    pwm_set_chan_level(slice_num, PWM_CHAN_B, level);
+                    pwm_set_chan_level(slice_num, pwm_channel, level);
                     oldlevel = level;
                 }
 
