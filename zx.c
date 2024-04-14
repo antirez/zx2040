@@ -767,6 +767,9 @@ int main() {
             case UI_EVENT_SCALING:
                 st77xx_fill(0);
                 break;
+            case UI_EVENT_CLOCK:
+                set_sys_clock_khz(EMU.emu_clock, false);
+                break;
             }
         }
 
