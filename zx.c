@@ -522,7 +522,7 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int fl
     // have multiple keys mapped to the same Spectrum key, and if
     // some phisical key put down some Spectrum key, we don't want
     // a successive mapping to up it up.
-    uint64_t put_down[2] = {0,0};
+    uint64_t put_down[4] = {0,0};
     #define put_down_set(keycode) put_down[keycode>>6] |= (1ULL<<(keycode&63))
     #define put_down_get(keycode) (put_down[keycode>>6] & (1ULL<<(keycode&63)))
 

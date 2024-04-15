@@ -462,33 +462,33 @@ void zx_key_down(zx_t* sys, int key_code) {
             break;
         case ZX_JOYSTICKTYPE_KEMPSTON:
             switch (key_code) {
-                case 0x20:  sys->kbd_joymask |= ZX_JOYSTICK_BTN; break;
-                case 0x08:  sys->kbd_joymask |= ZX_JOYSTICK_LEFT; break;
-                case 0x09:  sys->kbd_joymask |= ZX_JOYSTICK_RIGHT; break;
-                case 0x0A:  sys->kbd_joymask |= ZX_JOYSTICK_DOWN; break;
-                case 0x0B:  sys->kbd_joymask |= ZX_JOYSTICK_UP; break;
+                case 0xFF:  sys->kbd_joymask |= ZX_JOYSTICK_BTN; break;
+                case 0xFE:  sys->kbd_joymask |= ZX_JOYSTICK_LEFT; break;
+                case 0xFD:  sys->kbd_joymask |= ZX_JOYSTICK_RIGHT; break;
+                case 0xFC:  sys->kbd_joymask |= ZX_JOYSTICK_DOWN; break;
+                case 0xFB:  sys->kbd_joymask |= ZX_JOYSTICK_UP; break;
                 default:    kbd_key_down(&sys->kbd, key_code); break;
             }
             break;
         // the Sinclair joystick ports work as normal keys
         case ZX_JOYSTICKTYPE_SINCLAIR_1:
             switch (key_code) {
-                case 0x20:  key_code = '5'; break;    // fire
-                case 0x08:  key_code = '1'; break;    // left
-                case 0x09:  key_code = '2'; break;    // right
-                case 0x0A:  key_code = '3'; break;    // down
-                case 0x0B:  key_code = '4'; break;    // up
+                case 0xFF:  key_code = '5'; break;    // fire
+                case 0xFE:  key_code = '1'; break;    // left
+                case 0xFD:  key_code = '2'; break;    // right
+                case 0xFC:  key_code = '3'; break;    // down
+                case 0xFB:  key_code = '4'; break;    // up
                 default: break;
             }
             kbd_key_down(&sys->kbd, key_code);
             break;
         case ZX_JOYSTICKTYPE_SINCLAIR_2:
             switch (key_code) {
-                case 0x20:  key_code = '0'; break;    // fire
-                case 0x08:  key_code = '6'; break;    // left
-                case 0x09:  key_code = '7'; break;    // right
-                case 0x0A:  key_code = '8'; break;    // down
-                case 0x0B:  key_code = '9'; break;    // up
+                case 0xFF:  key_code = '0'; break;    // fire
+                case 0xFE:  key_code = '6'; break;    // left
+                case 0xFD:  key_code = '7'; break;    // right
+                case 0xFC:  key_code = '8'; break;    // down
+                case 0xFB:  key_code = '9'; break;    // up
                 default: break;
             }
             kbd_key_down(&sys->kbd, key_code);
@@ -504,33 +504,33 @@ void zx_key_up(zx_t* sys, int key_code) {
             break;
         case ZX_JOYSTICKTYPE_KEMPSTON:
             switch (key_code) {
-                case 0x20:  sys->kbd_joymask &= ~ZX_JOYSTICK_BTN; break;
-                case 0x08:  sys->kbd_joymask &= ~ZX_JOYSTICK_LEFT; break;
-                case 0x09:  sys->kbd_joymask &= ~ZX_JOYSTICK_RIGHT; break;
-                case 0x0A:  sys->kbd_joymask &= ~ZX_JOYSTICK_DOWN; break;
-                case 0x0B:  sys->kbd_joymask &= ~ZX_JOYSTICK_UP; break;
+                case 0xFF:  sys->kbd_joymask &= ~ZX_JOYSTICK_BTN; break;
+                case 0xFE:  sys->kbd_joymask &= ~ZX_JOYSTICK_LEFT; break;
+                case 0xFD:  sys->kbd_joymask &= ~ZX_JOYSTICK_RIGHT; break;
+                case 0xFC:  sys->kbd_joymask &= ~ZX_JOYSTICK_DOWN; break;
+                case 0xFB:  sys->kbd_joymask &= ~ZX_JOYSTICK_UP; break;
                 default:    kbd_key_up(&sys->kbd, key_code); break;
             }
             break;
         // the Sinclair joystick ports work as normal keys
         case ZX_JOYSTICKTYPE_SINCLAIR_1:
             switch (key_code) {
-                case 0x20:  key_code = '5'; break;    // fire
-                case 0x08:  key_code = '1'; break;    // left
-                case 0x09:  key_code = '2'; break;    // right
-                case 0x0A:  key_code = '3'; break;    // down
-                case 0x0B:  key_code = '4'; break;    // up
+                case 0xFF:  key_code = '5'; break;    // fire
+                case 0xFE:  key_code = '1'; break;    // left
+                case 0xFD:  key_code = '2'; break;    // right
+                case 0xFC:  key_code = '3'; break;    // down
+                case 0xFB:  key_code = '4'; break;    // up
                 default: break;
             }
             kbd_key_up(&sys->kbd, key_code);
             break;
         case ZX_JOYSTICKTYPE_SINCLAIR_2:
             switch (key_code) {
-                case 0x20:  key_code = '0'; break;    // fire
-                case 0x08:  key_code = '6'; break;    // left
-                case 0x09:  key_code = '7'; break;    // right
-                case 0x0A:  key_code = '8'; break;    // down
-                case 0x0B:  key_code = '9'; break;    // up
+                case 0xFF:  key_code = '0'; break;    // fire
+                case 0xFE:  key_code = '6'; break;    // left
+                case 0xFD:  key_code = '7'; break;    // right
+                case 0xFC:  key_code = '8'; break;    // down
+                case 0xFB:  key_code = '9'; break;    // up
                 default: break;
             }
             kbd_key_up(&sys->kbd, key_code);

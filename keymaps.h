@@ -1,11 +1,11 @@
 // Kempston joystick key codes.
-#define KEMPSTONE_FIRE 0x20
-#define KEMPSTONE_LEFT 0x08
-#define KEMPSTONE_RIGHT 0x09
-#define KEMPSTONE_DOWN 0x0a
-#define KEMPSTONE_UP 0x0b
+#define KEMPSTONE_FIRE 0xff
+#define KEMPSTONE_LEFT 0xfe
+#define KEMPSTONE_RIGHT 0xfd
+#define KEMPSTONE_DOWN 0xfc
+#define KEMPSTONE_UP 0xfb
 
-// Special codes.
+// "Virtual" pins.
 //
 // PRESS_AT_TICK is specified when we want a key to be pressed
 // after the game starts, when a specific tick (frame) is reached.
