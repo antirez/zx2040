@@ -1837,6 +1837,7 @@ uint64_t z80_tick(z80_t* cpu, uint64_t pins) {
         }
     }
     #endif
+switch_again:
     switch (cpu->step) {
         //=== shared fetch machine cycle for non-DD/FD-prefixed ops
         // M1/T2: load opcode from data bus
@@ -1891,8 +1892,8 @@ uint64_t z80_tick(z80_t* cpu, uint64_t pins) {
             cpu->step = _z80_optable[cpu->opcode] + 3;
         } goto step_next;
         //=== special opcode fetch machine cycle for CB-prefixed instructions
-        case 22: _wait(); cpu->opcode = _gd(); goto step_next;
-        case 23: pins = _z80_refresh(cpu, pins); goto step_next;
+        case 22: _wait(); cpu->opcode = _gd(); goto step_next_and_iterate;
+        case 23: pins = _z80_refresh(cpu, pins); goto step_next_and_iterate;
         case 24: {
             if ((cpu->opcode & 7) == 6) {
                 // this is a (HL) instruction
@@ -1902,14 +1903,14 @@ uint64_t z80_tick(z80_t* cpu, uint64_t pins) {
             else {
                 cpu->step = _z80_special_optable[_Z80_OPSTATE_SLOT_CB];
             }
-        } goto step_next;
+        } goto step_next_and_iterate;
         //=== special opcode fetch machine cycle for ED-prefixed instructions
         // M1/T2: load opcode from data bus
-        case 25: _wait(); cpu->opcode = _gd(); goto step_next;
+        case 25: _wait(); cpu->opcode = _gd(); goto step_next_and_iterate;
         // M1/T3: refresh cycle
-        case 26: pins = _z80_refresh(cpu, pins); goto step_next;
+        case 26: pins = _z80_refresh(cpu, pins); goto step_next_and_iterate;
         // M1/T4: branch to instruction 'payload'
-        case 27: cpu->step = _z80_ed_optable[cpu->opcode]; goto step_next;
+        case 27: cpu->step = _z80_ed_optable[cpu->opcode]; goto step_next_and_iterate;
         //=== from here on code-generated
         
         //  00: NOP (M:1 T:4)
@@ -4792,6 +4793,19 @@ track_int_bits: {
         cpu->int_bits = ((cpu->int_bits | rising_nmi) & Z80_NMI) | (pins & Z80_INT);
     }
     return pins;
+
+// Speedup:
+// Perform another step without returning to the caller.
+step_next_and_iterate: cpu->step += 1;
+    {
+        // track NMI 0 => 1 edge and current INT pin state, this will track the
+        // relevant interrupt status up to the last instruction cycle and will
+        // be checked in the first M1 cycle (during _fetch)
+        const uint64_t rising_nmi = (pins ^ cpu->pins) & pins; // NMI 0 => 1
+        cpu->pins = pins;
+        cpu->int_bits = ((cpu->int_bits | rising_nmi) & Z80_NMI) | (pins & Z80_INT);
+    }
+    goto switch_again;
 }
 
 #undef _sa
