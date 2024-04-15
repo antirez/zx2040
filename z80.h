@@ -2233,10 +2233,10 @@ switch_again:
         //  29: ADD HL,HL (M:2 T:11)
         // -- generic
         case  183: _z80_add16(cpu,cpu->hlx[cpu->hlx_idx].hl);goto step_next;
-        case  184: goto step_next;
-        case  185: goto step_next;
-        case  186: goto step_next;
-        case  187: goto step_next;
+        case  184: cpu->step = 185;
+        case  185: cpu->step = 186;
+        case  186: cpu->step = 187;
+        case  187: cpu->step = 188;
         case  188: goto step_next;
         case  189: goto step_next;
         // -- overlapped
@@ -4376,7 +4376,7 @@ switch_again:
         // -- mread
         case 1260: cpu->step = 1261; // Speedup
         case 1261: _wait();_mread(cpu->hl++);goto step_next_and_iterate;
-        case 1262: cpu->dlatch=_gd();goto step_next;
+        case 1262: cpu->dlatch=_gd();goto step_next_and_iterate;
         // -- mwrite
         case 1263: cpu->step = 1264; // Speedup
         case 1264: _wait();_mwrite(cpu->de++,cpu->dlatch);goto step_next_and_iterate;
