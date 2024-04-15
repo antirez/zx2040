@@ -27,7 +27,7 @@
 // provide as second entry in the row the second pin, and finally
 // a single Spectrum key code to trigger.
 // 
-// Important: the extended key maps of a game must be the initial entries,
+// IMPORTANT: the extended key maps of a game must be the initial entries,
 // before the normal entries. This way we avoid also sensing the keys
 // mapped to the single buttons involved.
 #define KEY_EXT         0x80
@@ -137,13 +137,20 @@ const uint8_t keymap_valley[] = {
 
 // Scuba
 // We redefine the keys at startup using macros.
-// Actually only level '1' (easy) can be selected
-// pressing up, as '3' and '2' associated with
-// the other keys are not received by the game
-// because pressed together with other keys.
+//
+// The the user must select the level from 1 to 4.
+// Level 1 is selected with just fire.
+// Level 2 pressing together up and left.
+// Level 3 up and right.
+// Level 4 up and fire.
 const uint8_t keymap_scuba[] = {
-    KEY_LEFT, 'x', '3',
-    KEY_RIGHT, 'z', '2',
+    // Extended key maps must be the initial entries.
+    KEY_UP|KEY_EXT, KEY_LEFT, '2',  // Level 2
+    KEY_UP|KEY_EXT, KEY_RIGHT, '3', // Level 3
+    KEY_UP|KEY_EXT, KEY_FIRE, '4',  // Level 4
+
+    KEY_LEFT, 'x', 0,
+    KEY_RIGHT, 'z', 0,
     KEY_FIRE, 'm', '1',
     KEY_DOWN, 'n', KEMPSTONE_DOWN,
     KEY_UP, '1', '1',       // Start game at level 1.
@@ -162,11 +169,11 @@ const uint8_t keymap_scuba[] = {
 
 // BMX simulator
 // Here we just need a way to start the game. There is no joystick
-// support apparently, so we map the default keys.
+// support apparently, so we map the default keyboard keys.
 const uint8_t keymap_bmxsim[] = {
     KEY_LEFT, '6', 0,               // 6 = left
     KEY_RIGHT, '7', 0,              // 7 = right
-    KEY_FIRE, '0', KEMPSTONE_FIRE,  // 0 = accelerate.
+    KEY_FIRE, '0', 0,               // 0 = accelerate.
     KEY_DOWN, ' ', 0,               // Space = Exit demo.
     KEY_UP, 's', 0,                 // S = Start game.
     KEY_END, 0, 0,
@@ -192,12 +199,18 @@ const uint8_t keymap_skooldaze[] = {
 };
 
 // Sabre Wulf
+//
+// We don't select the joystick automatically with a macro
+// since this stops the music, which may bring good memories.
+//
+// To select the joystick, press the fire button.
+// The game starts pressing 0, which is mapped to the up button.
 const uint8_t keymap_sabre[] = {
     KEY_LEFT, 0, KEMPSTONE_LEFT,
     KEY_RIGHT, 0, KEMPSTONE_RIGHT,
-    KEY_FIRE, '4', KEMPSTONE_FIRE,
-    KEY_DOWN, '0', KEMPSTONE_DOWN,  // Start game.
-    KEY_UP, 0, KEMPSTONE_UP,      // Start game.
+    KEY_FIRE, '4', KEMPSTONE_FIRE,  // 4 = Select kempstone joystick.
+    KEY_DOWN, '0', KEMPSTONE_DOWN,  // 0 = start game.
+    KEY_UP, 0, KEMPSTONE_UP,        // 0 = start game.
     KEY_END, 0, 0,
 };
 
@@ -205,10 +218,10 @@ const uint8_t keymap_sabre[] = {
 const uint8_t keymap_sanxion[] = {
     KEY_LEFT, 0, KEMPSTONE_LEFT,
     KEY_RIGHT, 0, KEMPSTONE_RIGHT,
-    KEY_FIRE, '1', KEMPSTONE_FIRE,
-    KEY_DOWN, '0', KEMPSTONE_DOWN,
+    KEY_FIRE, '1', KEMPSTONE_FIRE,  // 1 starts the game.
+    KEY_DOWN, 0, KEMPSTONE_DOWN,
     KEY_UP, 0, KEMPSTONE_UP,
-    PRESS_AT_TICK, 30, '3',         // Select kempstone
+    PRESS_AT_TICK, 30, '3',         // Select Kempstone automatically.
     RELEASE_AT_TICK, 31, '3',
     KEY_END, 0, 0,
 };
