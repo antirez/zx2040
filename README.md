@@ -17,7 +17,7 @@ The fantastic emulator I used as a base for this project was not designed for ve
 
 * In order to work with the small amount of RAM available in the RP2040, only the Spectrum 48k version is emulated, the 128k code was removed. The video code was changed to use a much smaller CRT framebuffer, where each byte holds two pixels (4bpp color).
 * The emulator UI is rendered directly on the emulator framebuffer in order to save memory.
-* Emulation performances were improved by rewriting small parts of the code that renders the ZX Spectrum VMEM into the CRT framebuffer (ULA emulation) and modifying the Z80 implementation to cheat a bit (instruction fetching combines three steps into one, slow instructions executed in less cycles and so on. Otherwise we could go at max at 60% speed of real hardware). On the scanline decoding code, there is a fast path for drawing the borders and and a few more changes to improve performances.
+* Emulation performances were improved by rewriting small parts of the code that renders the ZX Spectrum VMEM into the CRT framebuffer (ULA emulation) and modifying the Z80 implementation to cheat a bit (well, a lot): many steps of instruction fetching were combined together, slow instructions executed in less cycles, memory accesses done directly inside the Z80 emulation tick, and so forth. This makes the resulting emulator no longer cycle accurate, but otherwise we could go at best at 60% of the speed of real hardware, which is not enough.
 * Audio support was completely rewritten using the Pico second core and double buffering. We have two issues with the RP2040. One is memory. Fortunately there is no need to go from 1 bit music to 16bit samples that will then drive a speaker exactly with 1 bit of actual resolution. It makes sense in the original emulator, since the audio device of a real computer will accept proprer 16 bit audio samples, but in the Pico we just drive a pin with a connected speaker. So this repository implements a bitmap audio buffer, reducing the memory usage by a factor of 32. Another major problem is that we are emulating the Spectrum native speed by running without pauses: there is no way to be sure about the exact timing of a full tick (different sequences of instructions run at different speed), and the audio must be played as it is produced (in the original emulator it was assumed that the CPU of the host computer was able to emulate the Spectrum much faster, take the audio buffer, and put the samples in the audio output queue). So I used double buffering, and as the Z80 produces the music we play the other half of the buffer in the other thread, with adaptive timing. The result is recognizable audio even if the quality is not superb.
 
 With this changes, when the Pico is overclocked at 400Mhz (default of this code, **with cpu voltage set to 1.3V**), the emulation speed is more or less the same as a real ZX Specturm 48K in most games. If you want to go slower (simpler to play games, and certain Picos may not run well at 400Mhz) press the right button when powering up: this will select 300Mhz.
@@ -39,18 +39,26 @@ I want to thank [Andre Weissflog](https://github.com/floooh) for writing the ori
 You need either:
 
 * A Pimoroni Tufty 2040.
-* Or ... any other suitable Pico + display + 5 buttons combination.
+
+or...
+
+* Any other suitable Pico + display + 5 buttons combination.
+
+and...
+
 * A piezo speaker if you want audio.
 
-This project only supports ST77xx displays so far. They are cheap and widespread, and work well.
+This project only supports ST77xx displays so far. They are cheap and widespread, and they work well and exist in different qualities: TFT, IPS, and so forth.
 
 A note of warning: it is crucial to be able to refresh the display
 fast enough. SPI displays work well if they are not huge, let's say that up to
 320x240 max the update latency will not be so terrible.
 
-Parallel 8-lines ST77xx displays are much better, for instance in the Tufty 2040, using upscaling, it is possible to transfer the Spectrum CRT framebuffer to the display in something like ~14 milliseconds, so even refreshing the display 20 times per second we have 700 milliseconds of CPU time to run the emulator itself.
+Parallel 8-lines ST77xx displays are much better, for instance in the Tufty 2040, using upscaling, it is possible to transfer the Spectrum CRT framebuffer to the display in something like ~14 milliseconds, so even refreshing the display ~20 times per second we have 700 milliseconds of CPU time to run the emulator itself.
 
-320x240 displays are particularly good because the Spectrum full visible area including borders is 320x256 pixels, but if we remove borders, so when borders are enabled this is a nice view. When borders are disabled, it's even better: the bitmap resolution of the Spectrum is 256x192 pixels, it means that using 125% upscaling we match exactly the 320x240 display resolution!
+320x240 displays are particularly good because the Spectrum full visible area including borders is 320x256 pixels, so when borders are enabled this is a nice view. When borders are disabled, it's even better: the bitmap resolution of the Spectrum is 256x192 pixels, it means that using 125% upscaling we match exactly the 320x240 display resolution!
+
+The display should also be big enough if you want a nice play experience. Spectrum games were designed to be dispayed in a big TV set, so certain details can be too small if very small displays are used. 2.4" is a nice size. Larger is even better.
 
 ## Installation from sources
 
@@ -73,7 +81,9 @@ If you have a Tufty 2040, you can just grab one of the images under the `uf2` di
 
 * [3D Show](https://worldofspectrum.net/item/0007729/) (19xx), Vektor Graphix.
 
-... add key maps for each game ...
+## Games keymaps
+
+If you have doubts about what keys to use for a given file, make sure to check the **keymaps.h** file inside this repository. There you will find a keymap for each game, with comments telling you what each key does what and why.
 
 ## Adding games
 
