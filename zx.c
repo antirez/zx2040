@@ -548,13 +548,20 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int fl
             if (!(keymap[j] & KEY_EXT)) {
                 // Normal key maps: Pico pin -> two Spectrum keys.
                 if (get_device_button(keymap[j])) {
-                    put_down_set(keymap[j+1]);
-                    put_down_set(keymap[j+2]);
-                    zx_key_down(zx,keymap[j+1]);
-                    zx_key_down(zx,keymap[j+2]);
+                    if (keymap[j+1]) {
+                        put_down_set(keymap[j+1]);
+                        zx_key_down(zx,keymap[j+1]);
+                    }
+                    if (keymap[j+2]) {
+                        put_down_set(keymap[j+2]);
+                        zx_key_down(zx,keymap[j+2]);
+                    }
                 } else {
-                    if (!put_down_get(keymap[j+1])) zx_key_up(zx,keymap[j+1]);
-                    if (!put_down_get(keymap[j+2])) zx_key_up(zx,keymap[j+2]);
+                    // Release.
+                    if (!put_down_get(keymap[j+1]) && keymap[j+1])
+                        zx_key_up(zx,keymap[j+1]);
+                    if (!put_down_get(keymap[j+2]) && keymap[j+2])
+                        zx_key_up(zx,keymap[j+2]);
                 }
             } else {
                 // Extended key maps: two Pico pins -> one Spectrum key.
