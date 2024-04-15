@@ -221,8 +221,8 @@ const uint8_t keymap_sanxion[] = {
     KEY_FIRE, '1', KEMPSTONE_FIRE,  // 1 starts the game.
     KEY_DOWN, 0, KEMPSTONE_DOWN,
     KEY_UP, 0, KEMPSTONE_UP,
-    PRESS_AT_TICK, 30, '3',         // Select Kempstone automatically.
-    RELEASE_AT_TICK, 31, '3',
+    PRESS_AT_TICK, 40, '3',         // Select Kempstone automatically.
+    RELEASE_AT_TICK, 43, '3',
     KEY_END, 0, 0,
 };
 

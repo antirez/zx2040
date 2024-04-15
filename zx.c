@@ -662,10 +662,6 @@ void init_emulator(void) {
         pwm_set_enabled(slice_num, true);
     }
 
-    // Enter special mode depending on key presses during power up.
-    if (get_device_button(KEY_LEFT)) EMU.debug = 1; // Debugging mode.
-    if (get_device_button(KEY_RIGHT)) EMU.emu_clock = 300000; // Less overclock.
-
     // Convert palette to RGB565
     for (int j = 0; j < 16; j++)
         zxpalette[j] = palette_to_565(zxpalette[j]);
@@ -677,6 +673,10 @@ void init_emulator(void) {
     zx_desc.roms.zx48k.ptr = dump_amstrad_zx48k_bin;
     zx_desc.roms.zx48k.size = sizeof(dump_amstrad_zx48k_bin);
     zx_init(&EMU.zx, &zx_desc);
+
+    // Enter special mode depending on key presses during power up.
+    if (get_device_button(KEY_LEFT)) EMU.debug = 1; // Debugging mode.
+    if (get_device_button(KEY_RIGHT)) EMU.emu_clock = 300000; // Less overclock.
 }
 
 /* Load the specified game ID. The ID is just the index in the
@@ -802,7 +802,8 @@ int main() {
         if (EMU.debug) {
             char buf[32];
             snprintf(buf,sizeof(buf),"%d",(int)EMU.tick);
-            ui_draw_string(10,10,buf,3,2);
+            ui_draw_string(30,30,buf,0,2);
+            ui_draw_string(32,32,buf,7,2);
         }
 
         // Update the display with the current CRT image.
