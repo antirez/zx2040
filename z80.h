@@ -3549,15 +3549,15 @@ switch_again:
         
         //  E5: PUSH HL (M:4 T:11)
         // -- generic
-        case  791: goto step_next;
+        case  791: cpu->step = 792; // Speedup
         // -- mwrite
-        case  792: goto step_next;
+        case  792: cpu->step = 793; // Speedup
         case  793: _wait();_mwrite(--cpu->sp,cpu->hlx[cpu->hlx_idx].h);goto step_next;
-        case  794: goto step_next;
+        case  794: cpu->step = 795; // Speedup
         // -- mwrite
-        case  795: goto step_next;
-        case  796: _wait();_mwrite(--cpu->sp,cpu->hlx[cpu->hlx_idx].l);goto step_next;
-        case  797: goto step_next;
+        case  795: cpu->step = 796; // Speedup
+        case  796: _wait();_mwrite(--cpu->sp,cpu->hlx[cpu->hlx_idx].l);goto step_next_and_iterate;
+        case  797: cpu->step = 789; // Speedup
         // -- overlapped
         case  798: goto fetch_next;
         
