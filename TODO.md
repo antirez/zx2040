@@ -4,6 +4,7 @@
 * Allow to change brightness from the menu.
 * Many more games with well designed key maps.
 * Find a way to put code + game into the same UF2 image.
+* Improve Z80 speed, especially of slow opcodes reading/writing to memory.
 
 ## Hardware
 
