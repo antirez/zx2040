@@ -54,7 +54,7 @@ void load_game(int game_id);
 // Don't trust this USEC figure here, since the z80.h file implementation
 // is modified to glue together the instruction fetch steps, so we do
 // more work per tick.
-#define FRAME_USEC (30000)
+#define FRAME_USEC (25000)
 
 static struct emustate {
     zx_t zx;    // The emulator state.
