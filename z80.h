@@ -4378,12 +4378,12 @@ switch_again:
         case 1261: _wait();_mread(cpu->hl++);goto step_next_and_iterate;
         case 1262: cpu->dlatch=_gd();goto step_next;
         // -- mwrite
-        case 1263: goto step_next;
-        case 1264: _wait();_mwrite(cpu->de++,cpu->dlatch);goto step_next;
-        case 1265: goto step_next;
+        case 1263: cpu->step = 1264; // Speedup
+        case 1264: _wait();_mwrite(cpu->de++,cpu->dlatch);goto step_next_and_iterate;
+        case 1265: cpu->step = 1266;
         // -- generic
-        case 1266: _z80_ldi_ldd(cpu,cpu->dlatch);goto step_next;
-        case 1267: goto step_next;
+        case 1266: _z80_ldi_ldd(cpu,cpu->dlatch); cpu->step = 1267; // Speedup.
+        case 1267: cpu->step = 1268;
         // -- overlapped
         case 1268: goto fetch_next;
         
@@ -4662,14 +4662,14 @@ switch_again:
         
         // CB 00: cbhl (M:3 T:11)
         // -- mread
-        case 1445: goto step_next;
-        case 1446: _wait();_mread(cpu->hl);goto step_next;
-        case 1447: cpu->dlatch=_gd();if(!_z80_cb_action(cpu,6,6)){_skip(3);};goto step_next;
-        case 1448: goto step_next;
+        case 1445: cpu->step = 1445; // Speedup
+        case 1446: _wait();_mread(cpu->hl);goto step_next_and_iterate;
+        case 1447: cpu->dlatch=_gd();if(!_z80_cb_action(cpu,6,6)){_skip(3);};goto step_next_and_iterate;
+        case 1448: cpu->step = 1449;
         // -- mwrite
-        case 1449: goto step_next;
-        case 1450: _wait();_mwrite(cpu->hl,cpu->dlatch);goto step_next;
-        case 1451: goto step_next;
+        case 1449: cpu->step = 1450;
+        case 1450: _wait();_mwrite(cpu->hl,cpu->dlatch);goto step_next_and_iterate;
+        case 1451: cpu->step = 1452;
         // -- overlapped
         case 1452: goto fetch_next;
         
