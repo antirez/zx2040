@@ -69,6 +69,10 @@ If you have a Tufty 2040, you can just grab one of the images under the `uf2` di
 
 ## Included games
 
+## Included demos
+
+* [3D Show](https://worldofspectrum.net/item/0007729/) (19xx), Vektor Graphix.
+
 ... add key maps for each game ...
 
 ## Adding games

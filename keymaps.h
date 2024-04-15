@@ -226,3 +226,5 @@ const uint8_t keymap_sanxion[] = {
     KEY_END, 0, 0,
 };
 
+// 3D show demo
+#define keymap_3dshow_demo keymap_default
