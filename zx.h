@@ -340,7 +340,7 @@ static bool _zx_decode_scanline(zx_t* sys) {
 }
 
 static uint64_t _zx_tick(zx_t* sys, uint64_t pins) {
-    pins = z80_tick(&sys->cpu, pins);
+    pins = z80_tick(&sys->cpu, &sys->mem, pins);
 
     // video decoding and vblank interrupt
     if (--sys->scanline_counter <= 0) {

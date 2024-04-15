@@ -13,10 +13,10 @@
 
 #define CHIPS_IMPL
 #include "chips_common.h"
+#include "mem.h"
 #include "z80.h"
 #include "kbd.h"
 #include "clk.h"
-#include "mem.h"
 #include "zx.h"
 #include "zx-roms.h"
 

@@ -370,7 +370,7 @@ uint64_t z80_init(z80_t* cpu);
 // immediately put Z80 into reset state
 uint64_t z80_reset(z80_t* cpu);
 // execute one tick, return new pin mask
-uint64_t z80_tick(z80_t* cpu, uint64_t pins);
+uint64_t z80_tick(z80_t* cpu, mem_t *mem, uint64_t pins);
 // force execution to continue at address 'new_pc'
 uint64_t z80_prefetch(z80_t* cpu, uint16_t new_pc);
 // return true when full instruction has finished
@@ -1812,7 +1812,8 @@ uint64_t z80_prefetch(z80_t* cpu, uint16_t new_pc) {
 #define _cc_p           (!(cpu->f&Z80_SF))
 #define _cc_m           (cpu->f&Z80_SF)
 
-uint64_t z80_tick(z80_t* cpu, uint64_t pins) {
+uint64_t z80_tick(z80_t* cpu, mem_t *mem, uint64_t pins) {
+switch_again:
     pins &= ~(Z80_CTRL_PIN_MASK|Z80_RETI);
     #if 0
     // Poor man/woman's profiler to check which opcodes are
@@ -1837,7 +1838,6 @@ uint64_t z80_tick(z80_t* cpu, uint64_t pins) {
         }
     }
     #endif
-switch_again:
     switch (cpu->step) {
         //=== shared fetch machine cycle for non-DD/FD-prefixed ops
         // M1/T2: load opcode from data bus
@@ -4374,8 +4374,8 @@ switch_again:
         
         // ED A0: LDI (M:4 T:12)
         // -- mread
-        case 1260: goto step_next;
-        case 1261: _wait();_mread(cpu->hl++);goto step_next;
+        case 1260: cpu->step = 1261; // Speedup
+        case 1261: _wait();_mread(cpu->hl++);goto step_next_and_iterate;
         case 1262: cpu->dlatch=_gd();goto step_next;
         // -- mwrite
         case 1263: goto step_next;
@@ -4804,6 +4804,20 @@ step_next_and_iterate: cpu->step += 1;
         const uint64_t rising_nmi = (pins ^ cpu->pins) & pins; // NMI 0 => 1
         cpu->pins = pins;
         cpu->int_bits = ((cpu->int_bits | rising_nmi) & Z80_NMI) | (pins & Z80_INT);
+    }
+
+    if (pins & (Z80_INT|Z80_MREQ|Z80_IORQ)) {
+        if ((pins & Z80_INT|Z80_MREQ|Z80_IORQ) == Z80_MREQ) {
+            const uint16_t addr = Z80_GET_ADDR(pins);
+            if (pins & Z80_RD) {
+                Z80_SET_DATA(pins, mem_rd(mem, addr));
+            }
+            else if (pins & Z80_WR) {
+                mem_wr(mem, addr, Z80_GET_DATA(pins));
+            }
+        } else {
+            return pins;
+        }
     }
     goto switch_again;
 }
