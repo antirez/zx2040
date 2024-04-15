@@ -164,11 +164,11 @@ const uint8_t keymap_scuba[] = {
 // Here we just need a way to start the game. There is no joystick
 // support apparently, so we map the default keys.
 const uint8_t keymap_bmxsim[] = {
-    KEY_LEFT, '6', KEMPSTONE_LEFT,
-    KEY_RIGHT, '7', KEMPSTONE_RIGHT,
-    KEY_FIRE, '0', KEMPSTONE_FIRE,
-    KEY_DOWN, 's', KEMPSTONE_DOWN,  // Start game.
-    KEY_UP, 's', KEMPSTONE_UP,      // Start game.
+    KEY_LEFT, '6', 0,               // 6 = left
+    KEY_RIGHT, '7', 0,              // 7 = right
+    KEY_FIRE, '0', KEMPSTONE_FIRE,  // 0 = accelerate.
+    KEY_DOWN, ' ', 0,               // Space = Exit demo.
+    KEY_UP, 's', 0,                 // S = Start game.
     KEY_END, 0, 0,
 };
 
