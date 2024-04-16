@@ -625,7 +625,7 @@ void init_emulator(void) {
     EMU.show_border = DEFAULT_DISPLAY_BORDERS;
     EMU.scaling = DEFAULT_DISPLAY_SCALING;
     EMU.volume = 20; // 0 to 20 valid values.
-    EMU.audio_sample_wait = 320; // Adjusted dynamically.
+    EMU.audio_sample_wait = 370; // Adjusted dynamically.
     ui_reset_crop_area();
 
     // Pico Init
