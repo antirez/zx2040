@@ -125,16 +125,6 @@ const uint8_t keymap_ik[] = {
     KEY_END, 0, 0,
 };
 
-// Valley of rain.
-const uint8_t keymap_valley[] = {
-    KEY_LEFT, 'o', '1',
-    KEY_RIGHT, 'p', KEMPSTONE_RIGHT,
-    KEY_FIRE, 'm', KEMPSTONE_FIRE,
-    KEY_DOWN, 'a', KEMPSTONE_DOWN,
-    KEY_UP, 'q', KEMPSTONE_UP,
-    KEY_END, 0, 0,
-};
-
 // Scuba
 // We redefine the keys at startup using macros.
 //

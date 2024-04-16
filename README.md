@@ -39,14 +39,11 @@ I want to thank [Andre Weissflog](https://github.com/floooh) for writing the ori
 You need either:
 
 * A Pimoroni Tufty 2040.
-
-or...
-
-* Any other suitable Pico + display + 5 buttons combination.
+* Or, any other suitable Pico + display + 5 buttons combination.
 
 and...
 
-* A piezo speaker if you want audio.
+* A piezo speaker if you want audio support.
 
 This project only supports ST77xx displays so far. They are cheap and widespread, and they work well and exist in different qualities: TFT, IPS, and so forth.
 
@@ -64,7 +61,7 @@ The display should also be big enough if you want a nice play experience. Spectr
 
 If you build from sources:
 
-* Create a `device_config.h` file in the main directory. For the Pimoroni Tufty 2040 just do `cp devices/tufty2040.h device_config.h`. Otherwise if you have some different board, or you made one by hand with a Pico and an ST77xx display, just check the examples under the `devices` directory and create a configuration: it's easy, just define your pins and display interface (SPI/parallel).
+* Create a `device_config.h` file in the main directory. For the Pimoroni Tufty 2040 just do `cp devices/tufty2040.h device_config.h`. Otherwise if you have some different board, or you made one by hand with a Pico and an ST77xx display, just check the self-commented example file under the `devices` directory and create a configuration for your setup: it's easy, just define your pins and the display interface (SPI/parallel).
 * Compile with: `mkdir build; cd build; cmake ..; make`.
 * Transfer the `zx.uf2` file to your Pico (put it in boot mode pressing the boot button as you power up the device, then drag the file in the `RPI-RP2` drive you see as a USB drive).
 * Transfer the games images on the flash. Enter the `games` directory, put the Pico in boot mode (again) and run the `loadgames.py` Python program. Note that you need `picotool` installed (`pip install picotool`, or alike) to run it.
@@ -75,7 +72,23 @@ If you have a Tufty 2040, you can just grab one of the images under the `uf2` di
 
 ## Usage
 
+* Select the game and press the fire button to load it. The press the fire button again with the loaded game selected to leave the menu.
+* Long press left+right to return back to the menu.
+* Start with the left button pressed for more serial debugging and frame counter.
+* Start with the right button pressed to boot with a less extreme overclocking (300Mhz instead of 400Mhz). You can adjust it from the menu.
+
 ## Included games
+
+* [Jetpac](https://en.wikipedia.org/wiki/Jetpac).
+* [Loderunner](https://en.wikipedia.org/wiki/Lode_Runner).
+* [International Karate+](https://en.wikipedia.org/wiki/International_Karate_%2B).
+* [Sabre Wulf](https://en.wikipedia.org/wiki/Sabre_Wulf).
+* [Sanxion](https://en.wikipedia.org/wiki/Sanxion).
+* [Scuba Dive](https://worldofspectrum.org/archive/software/games/scuba-dive-durell-software-ltd).
+* [Thrust](https://en.wikipedia.org/wiki/Thrust_\(video_game\)).
+* [BMX Simulator](https://en.wikipedia.org/wiki/BMX_Simulator).
+* [Bombjack](https://en.wikipedia.org/wiki/Bomb_Jack).
+* [Skool Daze](https://en.wikipedia.org/wiki/Skool_Daze).
 
 ## Included demos
 
@@ -87,4 +100,8 @@ If you have doubts about what keys to use for a given file, make sure to check t
 
 ## Adding games
 
-## Porting to other Pico setups
+1. Copy the game Z80 file into the `games` directory. Use a very short name without special characters.
+2. Generate the game table and load the new binary image of the games using the `loadgames.py` script. Before running the script, put the Pico in boot mode.
+3. Add a keymap for the game, editing the `keymaps.h` file using the other keymaps as example.
+4. Recompile the project.
+5. Transfer the new UF2 image to the Pico.
