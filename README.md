@@ -72,6 +72,8 @@ If you build from sources:
 
 If you have a Tufty 2040, you can just grab one of the images under the `uf2` directory in this repository and flash your device. Done.
 
+If you want to create pre-built images with more games or for other devices, check the UF2 merge program under the `uf2-append` directory. There is a README inside, that explains how to use the program.
+
 ## Usage
 
 * Select the game and press the fire button to load it. The press the fire button again with the loaded game selected to leave the menu.
