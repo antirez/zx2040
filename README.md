@@ -110,7 +110,7 @@ If you have doubts about what keys to use for a given file, make sure to check t
 4. Recompile the project.
 5. Transfer the new UF2 image to the Pico.
 
-## Using this emulator for commercial goals
+## Using this emulator for commercial purposes
 
 All the code here MIT licensed, so you are free to use this emulator for commercial purposes. Feel free to sell it, put it as example in your boards or whatever you want to do with it. **However please note that the include games are non free copyrighted material**: either use free software games with a suitable license (there are new games developed for the Spectrum, very cool ones: pick the ones with a suitable license), or if you include the games in this repository in a commercial product **you will be responsible for your actions, not me :)**.
 
