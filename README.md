@@ -107,3 +107,9 @@ If you have doubts about what keys to use for a given file, make sure to check t
 3. Add a keymap for the game, editing the `keymaps.h` file using the other keymaps as example.
 4. Recompile the project.
 5. Transfer the new UF2 image to the Pico.
+
+## Using this emulator for commercial goals
+
+All the code here MIT licensed, so you are free to use this emulator for commercial purposes. Feel free to seel it, put it as example in your boards or whatever you want to do with it. **However please note that the include games are non free copyrighted material**: either use free software games with a suitable license (there are new games developed for the Spectrum, very cool ones: pick the ones with a suiltable license), or if you include the games in this repository in a commercial product **you will be responsible for your actions, not me :)**.
+
+One thing is the fair-use of redistributing things for free, given that nobody is selling these games anymore. But making money with them is a different story I believe.
