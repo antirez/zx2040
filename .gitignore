@@ -1,3 +1,7 @@
 build
 misc
 device_config.h
+games/games.bin
+games/games_list.h
+uf2-append/uf2-append
+uf2-append/uf2-ls
