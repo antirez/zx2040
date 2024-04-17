@@ -1,4 +1,4 @@
-The **ZX2040** is a port of [https://github.com/floooh/chips/](Andre Weissflog) ZX Spectrum emulator to the Raspberry Pico RP2040, packed with a simple UI for game selection and key mapping to make it usable without a keyboard.
+The **ZX2040** is a port of [Andre Weissflog](https://github.com/floooh/chips/) ZX Spectrum emulator to the Raspberry Pico RP2040, packed with a simple UI for game selection and key mapping to make it usable without a keyboard.
 
 This project is specifically designed for the Raspberry Pico and ST77xx based displays. Our reference device is the [Pimoroni Tufty RP2040 display board](https://shop.pimoroni.com/products/tufty-2040?variant=40036912595027), but actually the code can run into any Raspberry Pico equipped with an ST77x display and five buttons connected to five different pins. The buttons work as inputs for the four gaming directions (left, right, top, bottom) and the fire button. Please refer to the *hardware* section for more information.
 
@@ -6,12 +6,12 @@ This project is specifically designed for the Raspberry Pico and ST77xx based di
 
 ## Main features
 
-* Pico -> Spectrum key mapping with each pin mapped up to two Specturm keys or Kempstone joystick moves. Each game has its own key map, taking advantage of mapping to make games easier to play on portable devices: for instance Jetpac maps a single key (down key) to up + fire. Key macros are used in order to automatically trigger key presses when given frames are reached, to select the kempstone joystick, skip key redefinition, and other things otherwise impossible with few buttons available on the device.
-* A minimal ST77xx display driver is included, written specifically for this project. It has just what it is needed to initialize the display and refresh the screen with the Spectrum framebuffer content. It works both with SPI and 8-wires parallel interfaces and is optimized for fast bulk refreshes.
-* The emulator has an UI that allows to select a game into a list, change certain emulation settings and so forth.
-* Multiple games included, with a script to easily added more (see section about adding games). **Important**, I included copyrighted games hoping that's fair-use, since these games are no longer sold. If you are the copyright owner and want the game to be removed, please open an issue or write me an email at *antirez at google mail service*.
-* Real time upscaling and downscaling of video, to use the emulator with displays that are larger or smaller than the Spectrum video output. The emulator is also able to remove borders.
-* Crazy overclocking to make it work fast enough :D **Warning**: the code must run from the Pico RAM, and not in the memory mapped flash, otherwise it's not possible to go at 400Mhz. This is achieved simply with `pico_set_binary_type(zx copy_to_ram)` in `CMakeList.txt`. There are no problems accessing the flash to load games, because the code downclocks the CPU when loading games, and then returns at a higher overclocking speeds immediately after.
+* **Pico -> Spectrum key mapping** with each pin mapped up to two Specturm keys or Kempstone joystick moves. Each game has its own key map, taking advantage of mapping to make games easier to play on portable devices: for instance Jetpac maps a single key (down key) to up + fire. Key macros are used in order to automatically trigger key presses when given frames are reached, to select the kempstone joystick, skip key redefinition, and other things otherwise impossible with few buttons available on the device.
+* A **minimal ST77xx display driver is included**, written specifically for this project. It has just what it is needed to initialize the display and refresh the screen with the Spectrum framebuffer content. It works both with SPI and 8-wires parallel interfaces and is optimized for fast bulk refreshes.
+* The emulator has an **UI that allows to select games** into a list, change certain emulation settings and so forth.
+* **Multiple games included**, with a script to easily added more (see section about adding games). **Important**, I included copyrighted games hoping that's fair-use, since these games are no longer sold. If you are the copyright owner and want the game to be removed, please open an issue or write me an email at *antirez at google mail service*.
+* **Real time upscaling and downscaling** of video, to use the emulator with displays that are larger or smaller than the Spectrum video output. The emulator is also able to remove borders.
+* **Crazy overclocking** to make it work fast enough :D **Warning**: the code must run from the Pico RAM, and not in the memory mapped flash, otherwise it's not possible to go at 400Mhz. This is achieved simply with `pico_set_binary_type(zx copy_to_ram)` in `CMakeList.txt`. There are no problems accessing the flash to load games, because the code downclocks the CPU when loading games, and then returns at a higher overclocking speeds immediately after.
 
 ## Changes made to the original emulator
 
@@ -34,7 +34,7 @@ Finally, I needed to explore a bit more the Pico SDK and its C development exper
 
 ## Credits
 
-I want to thank [Andre Weissflog](https://github.com/floooh) for writing the original code and let us dream again.
+I want to thank [Andre Weissflog](https://github.com/floooh) for writing the original code and let us dream again. If this project was possible it is 90% because of his work.
 
 ## Hardware needed
 
@@ -81,16 +81,16 @@ If you have a Tufty 2040, you can just grab one of the images under the `uf2` di
 
 ## Included games
 
-* [Jetpac](https://en.wikipedia.org/wiki/Jetpac).
-* [Loderunner](https://en.wikipedia.org/wiki/Lode_Runner).
-* [International Karate+](https://en.wikipedia.org/wiki/International_Karate_%2B).
-* [Sabre Wulf](https://en.wikipedia.org/wiki/Sabre_Wulf).
-* [Sanxion](https://en.wikipedia.org/wiki/Sanxion).
-* [Scuba Dive](https://worldofspectrum.org/archive/software/games/scuba-dive-durell-software-ltd).
-* [Thrust](https://en.wikipedia.org/wiki/Thrust_\(video_game\)).
-* [BMX Simulator](https://en.wikipedia.org/wiki/BMX_Simulator).
-* [Bombjack](https://en.wikipedia.org/wiki/Bomb_Jack).
-* [Skool Daze](https://en.wikipedia.org/wiki/Skool_Daze).
+* [Jetpac](https://en.wikipedia.org/wiki/Jetpac)
+* [Loderunner](https://en.wikipedia.org/wiki/Lode_Runner)
+* [International Karate+](https://en.wikipedia.org/wiki/International_Karate_%2B)
+* [Sabre Wulf](https://en.wikipedia.org/wiki/Sabre_Wulf)
+* [Sanxion](https://en.wikipedia.org/wiki/Sanxion)
+* [Scuba Dive](https://worldofspectrum.org/archive/software/games/scuba-dive-durell-software-ltd)
+* [Thrust](https://en.wikipedia.org/wiki/Thrust_\(video_game\))
+* [BMX Simulator](https://en.wikipedia.org/wiki/BMX_Simulator)
+* [Bombjack](https://en.wikipedia.org/wiki/Bomb_Jack)
+* [Skool Daze](https://en.wikipedia.org/wiki/Skool_Daze)
 
 ## Included demos
 
