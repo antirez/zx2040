@@ -2,6 +2,8 @@ This repository is a port of [https://github.com/floooh/chips/](Andre Weissflog)
 
 This project is specifically designed for the Raspberry Pico and ST77xx based displays. Our reference device is the [Pimoroni Tufty RP2040 display board](https://shop.pimoroni.com/products/tufty-2040?variant=40036912595027), but actually the code can run into any Raspberry Pico equipped with an ST77x display and five buttons connected to five different pins. The buttons work as inputs for the four gaming directions (left, right, top, bottom) and the fire button. Please refer to the *hardware* section for more information.
 
+![Jetpac running on the Pico ZX Spectrum emulator](images/pico_spectrum_emu.jpg)
+
 ## Main features
 
 * Pico -> Spectrum key mapping with each pin mapped up to two Specturm keys or Kempstone joystick moves. Each game has its own key map, taking advantage of mapping to make games easier to play on portable devices: for instance Jetpac maps a single key (down key) to up + fire. Key macros are used in order to automatically trigger key presses when given frames are reached, to select the kempstone joystick, skip key redefinition, and other things otherwise impossible with few buttons available on the device.
