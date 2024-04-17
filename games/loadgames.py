@@ -17,8 +17,7 @@ with open('games.bin', 'wb') as bin_file:
             data = file.read()
             bin_file.write(data)
 
-# Transfer games.bin to Raspberry Pi Pico
-subprocess.run(['picotool', 'load', 'games.bin', '-t', 'bin', '-o', hex(base_address)], check=True)
+print(">>> games.bin generated.")
 
 # Generate games_list.h
 with open('games_list.h', 'w') as h_file:
@@ -39,5 +38,13 @@ with open('games_list.h', 'w') as h_file:
 
     h_file.write('};\n')
 
-print("Done. games.bin transferred and games_list.h generated.")
+print(">>> games_list.h generated.")
 
+# Transfer games.bin to Raspberry Pi Pico
+try:
+    subprocess.run(['picotool', 'load', 'games.bin', '-t', 'bin', '-o', hex(base_address)], check=True)
+except Exception as e:
+    print(e)
+    exit(1)
+
+print(">>> games.bin transferred.")
