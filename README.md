@@ -1,9 +1,3 @@
-**WARNING:** Dear users, this repository right now is WITHOUT any game. I received an email asking me to remove all the games. I don't want these kind of issues... so games removed. I'll add new keymaps and freely distributed games soon.
-
-I also removed the UF2 images with the games. I'll fix the issues ASAP with new games and demos.
-
-*and now, the README itself*
-
 The **ZX2040** is a port of [Andre Weissflog](https://github.com/floooh/chips/) ZX Spectrum emulator to the Raspberry Pico RP2040, packed with a simple UI for game selection and key mapping to make it usable without a keyboard.
 
 This project is specifically designed for the Raspberry Pico and ST77xx based displays. Our reference device is the [Pimoroni Tufty RP2040 display board](https://shop.pimoroni.com/products/tufty-2040?variant=40036912595027), but actually the code can run into any Raspberry Pico equipped with an ST77x display and five buttons connected to five different pins. The buttons work as inputs for the four gaming directions (left, right, top, bottom) and the fire button. Please refer to the *hardware* section for more information.
@@ -15,7 +9,7 @@ This project is specifically designed for the Raspberry Pico and ST77xx based di
 * **Pico -> Spectrum key mapping** with each pin mapped up to two Spectrum keys or Kempstone joystick moves. Each game has its own key map, taking advantage of mapping to make games easier to play on portable devices: for instance Jetpac maps a single key (down key) to up + fire. Key macros are used in order to automatically trigger key presses when given frames are reached, to select the kempstone joystick, skip key redefinition, and other things otherwise impossible with few buttons available on the device.
 * A **minimal ST77xx display driver is included**, written specifically for this project. It has just what it is needed to initialize the display and refresh the screen with the Spectrum frame buffer content. It works both with SPI and 8-wires parallel interfaces and is optimized for fast bulk refreshes.
 * The emulator has an **UI that allows to select games** into a list, change certain emulation settings and so forth.
-* **Multiple games included**, with a script to easily added more (see section about adding games). **Important**, I included copyrighted games hoping that's fair-use, since these games are no longer sold. If you are the copyright owner and want the game to be removed, please open an issue or write me an email at *antirez at google mail service*.
+* **Easy games upload**, with a script to create a binary image of Z80 games and transfer it into the Pico flaash. **Important:**, I will try to include games for which the owners provided permission, for now you have to copy the Z80 files yourself. Check the list of games for the games that already have a defined keymap.
 * **Real time upscaling and downscaling** of video, to use the emulator with displays that are larger or smaller than the Spectrum video output. The emulator is also able to remove borders.
 * **Crazy overclocking** to make it work fast enough :D **Warning**: the code must run from the Pico RAM, and not in the memory mapped flash, otherwise it's not possible to go at 400Mhz. This is achieved simply with `pico_set_binary_type(zx copy_to_ram)` in `CMakeList.txt`. There are no problems accessing the flash to load games, because the code down-clocks the CPU when loading games, and then returns at a higher overclocking speeds immediately after.
 
@@ -71,16 +65,16 @@ The display should also be big enough if you want a nice play experience. Spectr
 
 If you build from sources:
 
+* Install `picotool` (`pip install picotool`, or alike) and the Pico SDK.
 * Create a `device_config.h` file in the main directory. For the Pimoroni Tufty 2040 just do `cp devices/tufty2040.h device_config.h`. Otherwise if you have some different board, or you made one by hand with a Pico and an ST77xx display, just check the self-commented example file under the `devices` directory and create a configuration for your setup: it's easy, just define your pins and the display interface (SPI/parallel).
+* Transfer the games images on the flash. Enter the `games` directory, add your games `.z80` files there if you want, otherwise there is a just a single demo already included (Note: the games may be under copyright, I'm not responsible in case you use copyrighted material without permission), see the games list for games that already have a keymap defined, also check `keymaps.h` to see how to name the `.z80` file for each game. For instance Jetpac should be named `jetpac.z80`. Put the Pico in boot mode and run the `loadgames.py` Python program: this program will generate the game list header (used in the next step) and will upload the games to the device flash memory.
 * Compile with: `mkdir build; cd build; cmake ..; make`.
+* If you get compilation errors about keymap files, either the .z80 file was not copyed inside `games` with a name matching the keymap, or a keymap is not defined for that game inside `keymaps.h`.
 * Transfer the `zx.uf2` file to your Pico (put it in boot mode pressing the boot button as you power up the device, then drag the file in the `RPI-RP2` drive you see as a USB drive).
-* Transfer the games images on the flash. Enter the `games` directory, add your games `.z80` files there (Note: the games may be under copyright, I'm not responsible in case you use copyrighted material without permission), see the games list for games that already have a keymap defined. Put the Pico in boot mode (again) and run the `loadgames.py` Python program. Note that you need `picotool` installed (`pip install picotool`, or alike) to run it.
 
 ## Installation from pre-built images
 
-If you have a Tufty 2040, you can just grab one of the images under the `uf2` directory in this repository and flash your device. Done.
-
-If you want to create pre-built images with more games or for other devices, check the UF2 merge program under the `uf2-append` directory. There is a README inside, that explains how to use the program.
+For the Tufty 2040 I'll add an UF2 file with a few games included. For now I had to remove it, because of games copyright concerns. I need to understand which Spectrum games can be freely distributed.
 
 ## Usage
 
@@ -91,7 +85,7 @@ If you want to create pre-built images with more games or for other devices, che
 
 ## Games compatibility
 
-This repository has keymaps and was tested with the following games:
+This repository has keymaps that work with the following games:
 
 * [Jetpac](https://en.wikipedia.org/wiki/Jetpac)
 * [Loderunner](https://en.wikipedia.org/wiki/Lode_Runner)
