@@ -1,3 +1,9 @@
+**WARNING:** Dear users, this repository right now is WITHOUT any game. I received an email asking me to remove all the games. I don't want these kind of issues... so games removed. I'll add new keymaps and freely distributed games soon.
+
+I also removed the UF2 images with the games. I'll fix the issues ASAP with new games and demos.
+
+*and now, the README itself*
+
 The **ZX2040** is a port of [Andre Weissflog](https://github.com/floooh/chips/) ZX Spectrum emulator to the Raspberry Pico RP2040, packed with a simple UI for game selection and key mapping to make it usable without a keyboard.
 
 This project is specifically designed for the Raspberry Pico and ST77xx based displays. Our reference device is the [Pimoroni Tufty RP2040 display board](https://shop.pimoroni.com/products/tufty-2040?variant=40036912595027), but actually the code can run into any Raspberry Pico equipped with an ST77x display and five buttons connected to five different pins. The buttons work as inputs for the four gaming directions (left, right, top, bottom) and the fire button. Please refer to the *hardware* section for more information.
