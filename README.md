@@ -118,3 +118,9 @@ If you have doubts about what keys to use for a given file, make sure to check t
 ## Using this emulator for commercial purposes
 
 All the code here MIT licensed, so you are free to use this emulator for commercial purposes. Feel free to sell it, put it as example in your boards or whatever you want to do with it. **However please note that games you find in the wild are often copyrighted material** and are not under a free license. Either use free software games with a suitable license (there are new games developed for the Spectrum every year, very cool ones too: pick the ones with a suitable license), or ask permission to the copyright owners. In any case, **you will be responsible for your actions, not me :)**.
+
+About the ZX Spectrum ROM included in this repository, this is copyrighted material, and the current owner is the Sky Group, so if you want to do a commercial product using this code using also the ROM, you need to contact Sky Group. This is what happened so far:
+* The original owner was Sinclair, that was sold to Amstrad.
+* Amstrad agreed that having the ROMs as parts of NON commercial use was fair use. That's really cool, and one of the resons why Spectrum emulators are legal.
+* Then Amstrad was sold to the Sky Group. Apparently the ZX Spectrum Next has official permission from the Sky Group to use the ROM. So the position of the Sky Group is yet very open.
+* However if you want to make anything commercial with the ROM, you need an official written permission. If you want to use this emualtor without the ROM, to run a snapshot image that does not use any code inside the ROM, you can just discard the ROM file, and use this emulator for any purpose.
