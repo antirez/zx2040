@@ -41,6 +41,12 @@ with open('games.bin', 'wb') as bin_file:
 	# no more games.
     bin_file.write(b'\x00')
 
+    # Write keymaps at the end.
+    keymap = open("keymaps.txt", 'rb')
+    data = keymap.read()
+    data_size = len(data)
+    bin_file.write(data);
+
 print(">>> games.bin generated.")
 
 # Transfer games.bin to Raspberry Pi Pico

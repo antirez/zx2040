@@ -3,13 +3,13 @@
  * See the LICENSE file for more info. */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 #include "hardware/vreg.h"
 
 #include "device_config.h" // Hardware-specific defines for ST77 and keys.
 #include "st77xx.h"
-#include "keymaps.h"
 
 #define CHIPS_IMPL
 #include "chips_common.h"
@@ -48,16 +48,51 @@ void load_game(int game_id);
 /* =============================== Games list =============================== */
 
 struct game_entry {
-    const char *name;
-    void *addr;         // Address in the flash memory.
-    uint32_t size;      // Length in bytes.
-    const uint8_t *map; // Keyboard mapping to use. See keys_config.h.
+    char name[8];           // Z80 snapshot filename, first chars.
+    void *addr;             // Address in the flash memory.
+    uint32_t size;          // Length in bytes.
 };
 
 // These are populate during initialization, by scanning the
 // flash memory for games images.
 struct game_entry *GamesTable;
 uint32_t GamesTableSize;
+
+/* ============================== Keymap defines ============================ */
+
+// Kempston joystick key codes: note that this were redefined compared to
+// the original zx.h file.
+#define KEMPSTONE_FIRE 0xff
+#define KEMPSTONE_LEFT 0xfe
+#define KEMPSTONE_RIGHT 0xfd
+#define KEMPSTONE_DOWN 0xfc
+#define KEMPSTONE_UP 0xfb
+
+// "Virtual" pins.
+//
+// PRESS_AT_TICK is specified when we want a key to be pressed
+// after the game starts, when a specific tick (frame) is reached.
+// This is often useful in order to select the joystick or for
+// similar tasks.
+//
+// Just specify PRESS_AT_TICK as pin, then the frame number, and
+// finally the key.
+#define PRESS_AT_TICK   0xfe // Press at the specified frame.
+#define RELEASE_AT_TICK 0xfd // Release at the specified frame.
+#define KEY_END         0xff // This just marks the end of the key map.
+
+// Extended keymaps allow two device buttons (pins) pressed together to map
+// to other Specturm keys. This is useful for games such as Skool Daze
+// that have too many keys doing useful things.
+// 
+// To use this kind of maps, xor KEY_EXT to the first pin, then
+// provide as second entry in the row the second pin, and finally
+// a single Spectrum key code to trigger.
+// 
+// IMPORTANT: the extended key maps of a game must be the initial entries,
+// before the normal entries. This way we avoid also sensing the keys
+// mapped to the single buttons involved.
+#define KEY_EXT         0x80
 
 /* ========================== Global state and defines ====================== */
 
@@ -80,7 +115,9 @@ static struct emustate {
     uint32_t tick; // Frame number since last game load.
 
     // Keymap in use right now. Modified by load_game().
-    const uint8_t *current_keymap;
+    uint8_t keymap[300];       // 100 map entries... more than enough.
+    char *keymap_file;         // Pointer of the keymap description file
+                               // inside the flash memory.
 
     // Is the game selection / config menu shown?
     int menu_active;
@@ -302,7 +339,14 @@ void ui_go_next_prev_game(int dir) {
 // Returns 1 is if some event was processed. Otherwise 0.
 #define UI_DEBOUNCING_TIME 100000
 uint32_t ui_handle_key_press(void) {
-    const uint8_t *km = keymap_default;
+    const uint8_t km[] = {
+        KEY_LEFT, 0, KEMPSTONE_LEFT,
+        KEY_RIGHT, 0, KEMPSTONE_RIGHT,
+        KEY_FIRE, 0, KEMPSTONE_FIRE,
+        KEY_DOWN, 0, KEMPSTONE_DOWN,
+        KEY_UP, 0, KEMPSTONE_UP,
+        KEY_END, 0, 0,
+    };
     static absolute_time_t last_key_accepted_time = 0;
 
     // Debouncing
@@ -715,7 +759,59 @@ int populate_games_list(void) {
     // the program code.
     marker[0] = 'Z';
     marker[1] = 'X';
-    return 0;
+   
+    // Search for games. We aspect the games snapshots to be stored at
+    // the start of any page.
+    sleep_ms(2000);
+    printf("Start scanning...\n");
+    uint8_t *p = NULL;
+    for (uint32_t offset = 0; offset < 1024*2048; offset += 4096) {
+        p = (uint8_t*)(0x10000000|offset);
+        if (!memcmp(marker,p,16)) {
+            p += 16; // Skip marker.
+            printf("Games snapshots found at %p\n", p);
+            break;
+        }
+        p = NULL; // Signal no found.
+    }
+    if (!p) return 0; // No games in the flash, or wrong alignment.
+
+    // Populate our games table. To start, check the size: the Pico supports
+    // realloc() but if we alloc in one pass for the right size, we avoid
+    // memory fragmentation and other issues.
+    printf("Loading...\n");
+    uint8_t *games_table_start = p;
+    GamesTableSize = 0;
+    while (*p != 0) {
+        uint8_t namelen = *p;
+        p += 1+namelen;
+        uint32_t datalen;
+        memcpy(&datalen,p,4);
+        p += 4+datalen;
+        GamesTableSize++;
+    }
+
+    EMU.keymap_file = p+1; // The keymap is at the end of the games snapshots.
+
+    // Now allocate and fill the game table.
+    p = games_table_start;
+    struct game_entry *ge;
+    GamesTable = malloc(sizeof(*ge) * GamesTableSize);
+    for (int j = 0; j < GamesTableSize; j++) {
+        ge = &GamesTable[j];
+        uint8_t namelen = *p;
+        uint8_t copylen = namelen;
+        if (copylen > sizeof(ge->name)) copylen = sizeof(ge->name)-1;
+        p++; // Seek name.
+        memcpy(ge->name,p,namelen);
+        ge->name[namelen] = 0; // Null term.
+        p += namelen; // Skip name
+        memcpy(&ge->size,p,4);
+        p += 4;
+        ge->addr = p;
+        p += ge->size;
+    }
+    return 1;
 }
 
 // Initialize the Pico and the Spectrum emulator.
@@ -726,7 +822,8 @@ void init_emulator(void) {
     EMU.base_clock = 280000;
     EMU.emu_clock = 400000;
     EMU.tick = 0;
-    EMU.current_keymap = keymap_default;
+    EMU.keymap[0] = KEY_END; // No keymap at startup. Will be loaded later.
+    EMU.keymap_file = NULL;  // Set by populate_games_list().
     EMU.selected_game = 0;
     EMU.show_border = DEFAULT_DISPLAY_BORDERS;
     EMU.scaling = DEFAULT_DISPLAY_SCALING;
@@ -748,11 +845,13 @@ void init_emulator(void) {
     st77xx_fill_box(st77_width-41,st77_height-41,40,40,st77xx_rgb565(50,50,50));
     st77xx_set_brightness(EMU.brightness); // Go to the default.
 
-    // Overclocking
+    // Overclocking. We start at base clock (low enough to access the
+    // flash). After loading the games list from the flash, we go
+    // at full speed.
     vreg_set_voltage(VREG_VOLTAGE_1_30);
-    set_sys_clock_khz(EMU.emu_clock, false);
+    set_sys_clock_khz(EMU.base_clock, false); sleep_us(50);
 
-    // Keys pin initialization
+    // Keys pin initialization.
     gpio_init(KEY_LEFT);
     gpio_init(KEY_RIGHT);
     gpio_init(KEY_UP);
@@ -762,6 +861,7 @@ void init_emulator(void) {
         (1<<KEY_LEFT) | (1<<KEY_RIGHT) | (1<<KEY_UP) | (1<<KEY_DOWN) |
         (1<<KEY_FIRE));
 
+    // Configure audio pin PWM.
     if (SPEAKER_PIN != -1) {
         gpio_set_function(SPEAKER_PIN, GPIO_FUNC_PWM);
         unsigned int slice_num = pwm_gpio_to_slice_num(SPEAKER_PIN);
@@ -771,11 +871,11 @@ void init_emulator(void) {
         pwm_set_enabled(slice_num, true);
     }
 
-    // Convert palette to RGB565
+    // Convert palette to RGB565.
     for (int j = 0; j < 16; j++)
         zxpalette[j] = palette_to_565(zxpalette[j]);
 
-    // ZX emulator Init
+    // ZX emulator Init.
     zx_desc_t zx_desc = {0};
     zx_desc.type = ZX_TYPE_48K;
     zx_desc.joystick_type = ZX_JOYSTICKTYPE_KEMPSTON;
@@ -789,6 +889,9 @@ void init_emulator(void) {
     if (get_device_button(KEY_RIGHT)) EMU.emu_clock = 300000; // Less overclock.
 }
 
+void get_keymap_for_current_game(void) {
+}
+
 /* Load the specified game ID. The ID is just the index in the
  * games table. As a side effect, sets the keymap. */
 void load_game(int game_id) {
@@ -796,7 +899,7 @@ void load_game(int game_id) {
     struct game_entry *g = &GamesTable[game_id];
     chips_range_t r = {.ptr=g->addr, .size=g->size};
     flush_zx_key_press(&EMU.zx); // Make sure no keys are down.
-    EMU.current_keymap = g->map;
+    get_keymap_for_current_game();
     EMU.tick = 0;
 
     // We update the screen from the video memory. Moreover we have Z80
@@ -907,10 +1010,14 @@ int main() {
         }
     }
 
-    // load_game(EMU.selected_game);
+    // Go to full speed and load the first game in the list.
+    set_sys_clock_khz(EMU.emu_clock, false); sleep_us(50);
+    load_game(EMU.selected_game);
 
+    // Start the audio thread.
     if (SPEAKER_PIN != -1) multicore_launch_core1(core1_play_audio);
 
+    // Our emulation main loop.
     uint32_t blink = 0;
     while (true) {
         absolute_time_t start, zx_exec_time, update_time;
@@ -941,7 +1048,7 @@ int main() {
         int kflags = HANDLE_KEYPRESS_ALL;
         if (EMU.menu_active || EMU.tick < EMU.menu_left_at_tick+10)
             kflags = HANDLE_KEYPRESS_MACRO;
-        handle_zx_key_press(&EMU.zx, EMU.current_keymap, EMU.tick, kflags);
+        handle_zx_key_press(&EMU.zx, EMU.keymap, EMU.tick, kflags);
 
         // Run the Spectrum VM for a few ticks.
         start = get_absolute_time();
