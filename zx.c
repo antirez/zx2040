@@ -47,8 +47,17 @@ void load_game(int game_id);
 
 /* =============================== Games list =============================== */
 
-#include "games/games_list.h"
-#define GamesTableSize (sizeof(GamesTable)/sizeof(GamesTable[0]))
+struct game_entry {
+    const char *name;
+    void *addr;         // Address in the flash memory.
+    uint32_t size;      // Length in bytes.
+    const uint8_t *map; // Keyboard mapping to use. See keys_config.h.
+};
+
+// These are populate during initialization, by scanning the
+// flash memory for games images.
+struct game_entry *GamesTable;
+uint32_t GamesTableSize;
 
 /* ========================== Global state and defines ====================== */
 
@@ -695,6 +704,20 @@ void set_volume(uint32_t volume) {
     pwm_set_enabled(slice_num, volume != 0);
 }
 
+// Called at startup to seek the games snapshots (Z80 files) and populate
+// the games table. Return true if games were found, otherwise zero
+// is returned, and the caller knows that the user failed to load games.
+int populate_games_list(void) {
+    char marker[] = "..2040GAMESBLOB!";
+    // Fix the marker. This way the marker string is not
+    // part of the program itself, and when we scan the flash
+    // looking for games we are sure we find the games and not
+    // the program code.
+    marker[0] = 'Z';
+    marker[1] = 'X';
+    return 0;
+}
+
 // Initialize the Pico and the Spectrum emulator.
 void init_emulator(void) {
     // Set default configuration.
@@ -866,7 +889,25 @@ void core1_play_audio(void) {
 int main() {
     init_emulator();
     st77xx_fill(0);
-    load_game(EMU.selected_game);
+
+    // If we fail to populate the game list, the user failed to flash
+    // the games image in the flash. Let's make they aware.
+    if (populate_games_list() == 0) {
+        int frame = 0;
+        while(1) {
+            frame++;
+            zx_exec(&EMU.zx, FRAME_USEC);
+            if (frame > 30) {
+                ui_draw_string(0,0,"PLEASE LOAD",1,2);
+                ui_draw_string(0,20,"GAMES SNAPSHOTS",1,2);
+                ui_draw_string(0,40,"CHECK README :)",1,2);
+            }
+            update_display(EMU.scaling,EMU.show_border,0);
+            printf("PLEASE LOAD GAMES SNAPSHOTS\n");
+        }
+    }
+
+    // load_game(EMU.selected_game);
 
     if (SPEAKER_PIN != -1) multicore_launch_core1(core1_play_audio);
 
