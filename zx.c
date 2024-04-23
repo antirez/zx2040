@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 #include "hardware/vreg.h"
@@ -762,7 +763,6 @@ int populate_games_list(void) {
    
     // Search for games. We aspect the games snapshots to be stored at
     // the start of any page.
-    sleep_ms(2000);
     printf("Start scanning...\n");
     uint8_t *p = NULL;
     for (uint32_t offset = 0; offset < 1024*2048; offset += 4096) {
@@ -889,7 +889,201 @@ void init_emulator(void) {
     if (get_device_button(KEY_RIGHT)) EMU.emu_clock = 300000; // Less overclock.
 }
 
+// Parse line and fill current map.
+// This function turns a description in the following format into the
+// three (or six) bytes entry representing one mapping in the keymap.
+//
+// Cases we need to handle:
+//
+// 1. xul2   Extended keymap (x). ul (up+left) = keypress of 2
+// 2. lx     Standard keymap with one key press. l (left) = press x
+// 3. rz2    Standard keymap with two presses: r(right) = press z and 2
+// 4. l1|l   Kempstone keypresses are |<dir>, |lrud or |f for fire.
+// 5. @10:k1 Auto keypresses: at frame 10, press k for 1 frame.
+//
+// Note that the case "5" will actually write 6 bytes, one for the press
+// and one for the release event.
+//
+// Return the number of bytes filled (frame entries will fill six
+// bytes instead of three), or 0 on syntax error.
+int keymap_descr_to_row(char *p, uint8_t *map) {
+    char buf[16]; // An entry like @1000:|f100 is still just 12 bytes.
+
+    // Let's work on a copy of the entry, stripping everything on the
+    // right so that we just have the map line itself.
+    int idx = 0;
+    while(*p != ' ' && *p != '\t' && *p != '\n' && *p != '\r'
+          && idx < sizeof(buf)-1)
+    {
+        buf[idx++] = *p;
+    }
+    buf[idx] = 0;
+    
+    // We have to set three bytes in total, so do the conversion
+    // in three exact steps.
+    int ext = 0; // Ext map if true (two buttons + one key).
+    int atframe = 0; // Special automatic keypress at frame entry if true.
+    int pos = 0; // Position inside the keymap line.
+    for (int j = 0; j < 3; j++) {
+        // Handle special conditions: extended and atframe entry.
+        if (j == 0) {
+            if (ext == 0 && buf[0] == 'x') {
+                ext = 1;
+                pos++;
+            } else if (atframe == 0 && buf[0] == '@') {
+                atframe = 1;
+                map[0] = PRESS_AT_TICK;
+                map[4] = RELEASE_AT_TICK;
+                pos++;
+            }
+        }
+
+        if (j == 1 && atframe) {
+            // Read the at-frame frame.
+            char *frame = buf+pos;
+            while (buf[pos] && buf[pos] != ':')
+                pos++;
+            if (buf[pos] == 0) return 0; // Syntax error.
+            buf[pos] = 0; pos++; // Pos points to key to press.
+            map[j] = atoi(frame);
+        } else if ((j == 0 && !atframe) || (j == 1 && ext)) {
+            // We read the button pin if:
+            //
+            // First keymap byte and is not at-frame entry.
+            // Second keymap byte and it is an extended map (has two pins).
+            uint8_t pin;
+            switch(buf[pos]) {
+            case 'l': pin = KEY_LEFT; break;
+            case 'r': pin = KEY_RIGHT; break;
+            case 'u': pin = KEY_UP; break;
+            case 'd': pin = KEY_DOWN; break;
+            case 'f': pin = KEY_FIRE; break;
+            default: return 0; // Syntax error.
+            }
+            if (ext && j == 0) pin |= KEY_EXT;
+            map[j] = pin;
+            pos++;
+        } else if (j == 2 || (j == 1 && !ext)) {
+            // Read the mapped Spectrum button or joystick move.
+            // Note that normal entries map to up to two buttons.
+            // The third entry is always a button press.
+            // The second entry is a button press if it's not an extended map.
+
+            // Normal maps (one pin, two buttons) may just have a single
+            // button. Stop here if that's the case.
+            if (j == 2 && buf[pos] == 0) break;
+
+            if (buf[pos] == '|') {
+                // Kempstone moves are prefixed by |
+                pos++;
+                switch(buf[pos]) {
+                case 'l': map[j] = KEMPSTONE_LEFT; break;
+                case 'r': map[j] = KEMPSTONE_RIGHT; break;
+                case 'u': map[j] = KEMPSTONE_UP; break;
+                case 'd': map[j] = KEMPSTONE_DOWN; break;
+                case 'f': map[j] = KEMPSTONE_FIRE; break;
+                default: return 0; // Syntax error.
+                }
+            } else {
+                // Normal keypress. Just take the byte given by the user.
+                map[j] = buf[pos];
+            }
+            pos++;
+            if (atframe) {
+                // Populate the release entry too.
+                map[5] = buf[2]; // Key to release is the same.
+                map[4] = map[1] + atoi(buf+pos); // Release frame.
+            }
+        }
+    }
+    return atframe ? 6 : 3;
+}
+
+/* This function will parse the keymap file stored in the flash memory
+ * (so it must be called with base overclocking, in order to read
+ * from flash) and will try to match every entry with the current RAM
+ * content in order to find a suitable keymap. */
 void get_keymap_for_current_game(void) {
+    int got_match = 0; // State telling we got a match with RAM content.
+    uint8_t *map = EMU.keymap;
+    char *p = EMU.keymap_file;
+
+    int line = 1; // Line number inside keymap file.
+    while(1) {
+        // Discard comments and empty lines.
+        if (*p == '#' || *p == '\r' || *p == '\n' || *p == ' ' || *p == '\t') {
+            // If we have a match, a space means our map ended. In this case
+            // return.
+            if (got_match) {
+                *map = KEY_END; // Terminate the map.
+                return;
+            }
+
+            // Otherwise, discard.
+            goto next_line;
+        }
+
+        // New map. Let's see if we match with it.
+        if ((!memcmp(p,"MATCH:",6) && !got_match) ||
+            (!memcmp(p,"AND-MATCH",9) && got_match))
+        {
+            char *end = strchr(p,'\n');
+            if (*(end-1) == '\r') end--;
+            p = strchr(p,':'); p++;
+            unsigned int pattern_len = (end-p)+1;
+
+            // Scan the Spectrum memory for a match.
+            int found = 0;
+            uint8_t *ram = (uint8_t*)EMU.zx.ram;
+            for (uint32_t j = 0; j < 49152-pattern_len; j++) {
+                if (ram[j] == p[0] && !memcmp(ram,p,pattern_len)) {
+                    found = 1;
+                    break;
+                }
+            }
+
+            got_match = found != 0;
+            goto next_line;
+        }
+
+        // If we reach the default map, just load it.
+        if (!memcmp(p,"DEFAULT:",8)) {
+            got_match = 1;
+            goto next_line;
+        }
+
+        // If we don't have a match, skip this map description line.
+        if (got_match == 0) goto next_line;
+
+        if (map == EMU.keymap) printf("Loading keymap at line %d\n", line);
+
+        // Turn this line into three bytes map entry using an helper
+        // function.
+        int used_bytes;
+        used_bytes = keymap_descr_to_row(p,map);
+        if (used_bytes == 0) {
+            int len = strchr(p,'\n') - p;
+            printf("Keymap syntax error at line %d: %.*s\n",line,len,p);
+            *map = KEY_END;
+            return;
+        }
+        map += used_bytes; // Go to the next entry;
+
+        if (map > EMU.keymap+sizeof(EMU.keymap)-3) {
+            // It is unlikely that a keymap is too long, but let's handle
+            // it in case of bugs. The -3 above is there because there are
+            // maps that can use two entries (6 bytes instead of 3 bytes).
+            map -= 3;
+            *map = KEY_END;
+            return;
+        }
+
+next_line:
+        line++;
+        if (!memcmp(p,"#END",4)) return; // Stop on end of file.
+        p = strchr(p,'\n');
+        p++;
+    }
 }
 
 /* Load the specified game ID. The ID is just the index in the
@@ -899,7 +1093,6 @@ void load_game(int game_id) {
     struct game_entry *g = &GamesTable[game_id];
     chips_range_t r = {.ptr=g->addr, .size=g->size};
     flush_zx_key_press(&EMU.zx); // Make sure no keys are down.
-    get_keymap_for_current_game();
     EMU.tick = 0;
 
     // We update the screen from the video memory. Moreover we have Z80
@@ -924,7 +1117,10 @@ void load_game(int game_id) {
             EMU.zx.scanline_period = 85;
         }
     }
+
+    // Load game and matching keymap (if any)
     zx_quickload(&EMU.zx, r);
+    get_keymap_for_current_game();
 
     EMU.loaded_game = game_id;
     set_sys_clock_khz(EMU.emu_clock, false); sleep_us(50);
