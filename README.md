@@ -2,6 +2,8 @@ The **ZX2040** is a port of [Andre Weissflog](https://github.com/floooh/chips/) 
 
 This project is specifically designed for the Raspberry Pico and ST77xx based displays. Our reference device is the [Pimoroni Tufty RP2040 display board](https://shop.pimoroni.com/products/tufty-2040?variant=40036912595027), but actually the code can run into any Raspberry Pico equipped with an ST77x display and five buttons connected to five different pins. The buttons work as inputs for the four gaming directions (left, right, top, bottom) and the fire button. Please refer to the *hardware* section for more information.
 
+**Video demo** [here](https://www.youtube.com/watch?v=Xxz8N-SCUJU).
+
 ![Jetpac running on the Pico ZX Spectrum emulator](images/pico_spectrum_emu.jpg)
 
 ## Main features
