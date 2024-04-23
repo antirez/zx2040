@@ -913,9 +913,9 @@ int keymap_descr_to_row(char *p, uint8_t *map) {
     // right so that we just have the map line itself.
     int idx = 0;
     while(*p != ' ' && *p != '\t' && *p != '\n' && *p != '\r'
-          && idx < sizeof(buf)-1)
+          && idx < (int)sizeof(buf)-1)
     {
-        buf[idx++] = *p;
+        buf[idx++] = *p++;
     }
     buf[idx] = 0;
     
@@ -986,6 +986,7 @@ int keymap_descr_to_row(char *p, uint8_t *map) {
                 }
             } else {
                 // Normal keypress. Just take the byte given by the user.
+                if (buf[pos] == '~') buf[pos] = ' ';
                 map[j] = buf[pos];
             }
             pos++;
@@ -1030,13 +1031,13 @@ void get_keymap_for_current_game(void) {
             char *end = strchr(p,'\n');
             if (*(end-1) == '\r') end--;
             p = strchr(p,':'); p++;
-            unsigned int pattern_len = (end-p)+1;
+            unsigned int pattern_len = (end-p);
 
             // Scan the Spectrum memory for a match.
             int found = 0;
             uint8_t *ram = (uint8_t*)EMU.zx.ram;
             for (uint32_t j = 0; j < 49152-pattern_len; j++) {
-                if (ram[j] == p[0] && !memcmp(ram,p,pattern_len)) {
+                if (ram[j] == p[0] && !memcmp(ram+j,p,pattern_len)) {
                     found = 1;
                     break;
                 }
@@ -1080,7 +1081,10 @@ void get_keymap_for_current_game(void) {
 
 next_line:
         line++;
-        if (!memcmp(p,"#END",4)) return; // Stop on end of file.
+        if (!memcmp(p,"#END",4)) {
+            printf("No default keymap found\n");
+            return; // Stop on end of file.
+        }
         p = strchr(p,'\n');
         p++;
     }
