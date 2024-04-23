@@ -1,15 +1,15 @@
 The program `uf2-append` in this directory was created on purpose for the
 Spectrum emulator in order to merge the games binary file with the UF2
 file produced by the SDK. The resulting UF2 file contains everything needed
-and can be flashed into the target device in a single pass.
+and can be flashed into the target device in a single pass: both program and games.
 
 The program usage is very simple:
 
-    ./uf2-append ../build/zx.uf2 ../games/games.bin 0x1007f100 output.uf2
+    ./uf2-append ../build/zx.uf2 ../games/games.bin 0x1007f000 output.uf2
 
 Note: you need to generate the `games.bin` file using the Python script inside the `games` directory.
 
-We just use the arbitrary target address 0x1007f100 for the games binary images, as it is far enough to don't overlap with the UF2 file produced by the SDK. It's probably too far and will be changed later.
+We just use the arbitrary target address 0x1007f000 for the games binary images, as it is far enough to don't overlap with the UF2 file produced by the SDK. It's probably too far and will be changed later. Note that the address MUST be multiple of 4096, as the emulator scans only whole flash sectors looking for the start of the games section.
 
 What this program does is:
 

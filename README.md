@@ -131,7 +131,7 @@ There are a few special things to know about mappings.
 * Extended devices are just `x<device-button1><device-button2><spectrum-key>`. See the example above.
 * Macros use "frames" as timer. To create a new map, to make sure when you want to do certain actions, just power-up the device with the left button pressed: a frames counter will show up in the left-top corner, so you can see when it's the right frame to trigger actions.
 
-Certain games have specific requirements about the CRT refresh. Since this emulator does not emulate the CRT, but writes the video memory directly on the display (even if it makes sure to respect the vertical blank interrupt in order to do so). If you see sprites flickering, you may want to use this special directive `SCANLINE-PERIOD` in the keymap. See the example below.
+Certain games have specific requirements about the CRT refresh. This emulator does not emulate the CRT, but writes the video memory directly on the display in one pass (even if it try to syncrhonize with vertical blank interrupt in order to do so). If you see sprites flickering, you may want to use this special directive `SCANLINE-PERIOD` in the keymap. See the example below.
 
 ```
 # Thrust. Give it a bit more redrawing time with scanline period of 170.
@@ -144,6 +144,8 @@ dm|d
 up|u
 @20:n1      Do you want to refine keys? [N]o
 ```
+
+Other times, like in Skool Daze, the scanline period is reduced in order to trigger the vertical blank interrupt more often and make the game faster.
 
 ## Usage
 
