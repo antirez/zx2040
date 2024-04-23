@@ -1,0 +1,136 @@
+#START do not remove this comment
+#
+# See README for this file format. Note that to
+# map buttons to space, the ~ character must be used.
+#
+# IMPORTANT: extended keymaps (starting with "x") must
+# be the FIRST entries in a map.
+
+# Scuba Dive
+MATCH:* SCUBA DIVE *
+xul2    up+left = 2, select level 2
+xur3    up+right = 3, select level 3
+xuf4    up+fire = 4, select level 4
+lx      left = x
+rz      right = z
+fm      fire = m
+dn      down = n
+u1      up = 1, select level 1
+@10:k1  Frame 10, press k to redefine keys
+@14:z1  Redefine left
+@16:x1  Redefine right
+@18:m1  Redefine accelerate
+@20:n1  Redefine decelerate
+
+# Bombjack
+MATCH:Elite Systems Presents
+AND-MATCH:BEST BOMBERS
+l1|l    left = 1 and Kempstone left
+r2|r    right = 2 and Kempstone right
+fp|u    fire = p and Kempstone up
+dp|d    down = p and Kempstone down
+u5|f    up = 5 and Kempstone fire
+
+# Jetpack.
+MATCH:JETPAC IS LOADING
+l1|l
+r2|r
+f4|f
+d|f|u   Up + fire combo for simpler playing
+u5|u
+@10:41  Press 4 at frame 10 to select Kempstone
+
+# Thrust
+MATCH:>>>THRUST<<<
+la|l
+rs|r
+fim
+dm|d
+up|u
+@20:n1      Do you want to refine keys? [N]o
+
+# Loderunner.
+MATCH:BRODERBUND SOFTWARE(SLODE RUNNER
+l1|l
+r2|r
+f0|f
+d3|d
+u5|u
+@20:01      Leave splash screen
+@70:21      Select joystick
+
+# IK+
+MATCH:DEFLECT@BALLS@FOR
+AND-MATCH:A@LOST@NINJA<<<<
+l1|l
+r2|r
+f5|f
+d3|d
+u4|u
+@20:01      Leave splash screen
+@30:01      Leave credits screen
+@40:51      Player 1 select joystick
+@50:n1      No player 2
+
+# BMX simulator
+MATCH:BMX
+AND-MATCH:6COURSE|RACE|PRESS 9A 9FOR 6ACTION
+l6      6 = left
+r7      7 = right
+f0      0 = accelerate
+d~      Space = exit demo
+us      S = start game
+
+# Skooldaze. Here there are too many keys, so we resort
+# to extended mapping.
+MATCH:YOU HAVE OVER 10000 LINES TO WRITE
+xdlf        Down+left = fire capatult
+xuls        Up+left = sit down/up
+xurl        Up+right = leap
+xufj        Up+fire = jump
+xudn        Up+n = [N]o to using your names.
+xlfu        Left+fire = [U]understand.
+lo|l
+rp|r
+fh|f        Hit
+da|d
+uq|u
+
+# Sabre Wulf
+MATCH:SABRE WULF IS LOADING
+l|l
+r|r
+f4|f    4 = Select kempstone
+d0|d    0 = Start game
+u|u
+
+# Sanxion
+MATCH:SANXION . . . THE SPECTRUM REMIX
+l|l
+r|r
+f1|r    1 = Start game
+d|d
+u|u
+@40:33  3 = Select Kempstone (take down for 3 frames)
+
+# Pac-Man by Marco Leal
+MATCH:PAC-MAN
+AND-MATCH:MARCO LEAL
+lo
+rp
+fs      S = Start game
+da
+uq
+
+# Default keymap used for all the games that don't match
+DEFAULT:
+xuly
+xurn
+xuf~ # ~ is mapped to space
+l1|l
+r2|r
+u3|u
+d4|d
+f5|f
+
+#END do not remove this comment
