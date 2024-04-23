@@ -116,7 +116,7 @@ static struct emustate {
     uint32_t tick; // Frame number since last game load.
 
     // Keymap in use right now. Modified by load_game().
-    uint8_t keymap[300];       // 100 map entries... more than enough.
+    uint8_t keymap[3*100];     // 100 map entries... more than enough.
     char *keymap_file;         // Pointer of the keymap description file
                                // inside the flash memory.
 
@@ -674,6 +674,7 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int fl
             // Press/release keys when a given frame is reached.
             if (!(flags & HANDLE_KEYPRESS_MACRO)) continue;
             if (keymap[j] == PRESS_AT_TICK) {
+                printf("Pressing '%c' at frame %d\n",keymap[j+2],ticks);
                 zx_key_down(zx,keymap[j+2]);
             } else {
                 zx_key_up(zx,keymap[j+2]);
@@ -933,7 +934,7 @@ int keymap_descr_to_row(char *p, uint8_t *map) {
             } else if (atframe == 0 && buf[0] == '@') {
                 atframe = 1;
                 map[0] = PRESS_AT_TICK;
-                map[4] = RELEASE_AT_TICK;
+                map[3] = RELEASE_AT_TICK;
                 pos++;
             }
         }
@@ -1017,6 +1018,14 @@ void get_keymap_for_current_game(void) {
             // return.
             if (got_match) {
                 *map = KEY_END; // Terminate the map.
+                // Log the loaded keymap: useful when things don't
+                // work as expected.
+                map = EMU.keymap;
+                for (int j = 0; j < sizeof(EMU.keymap)/3; j++) {
+                    if (map[j*3] == KEY_END) break;
+                    printf("map entry %d: %d %d %d\n", j,
+                        map[j*3], map[j*3+1], map[j*3+2]);
+                }
                 return;
             }
 
