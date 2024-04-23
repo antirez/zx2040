@@ -1005,7 +1005,7 @@ int keymap_descr_to_row(char *p, uint8_t *map) {
  * (so it must be called with base overclocking, in order to read
  * from flash) and will try to match every entry with the current RAM
  * content in order to find a suitable keymap. */
-void get_keymap_for_current_game(void) {
+void get_keymap_for_current_game(int game_id) {
     int got_match = 0; // State telling we got a match with RAM content.
     uint8_t *map = EMU.keymap;
     char *p = EMU.keymap_file;
@@ -1067,6 +1067,15 @@ void get_keymap_for_current_game(void) {
 
         if (map == EMU.keymap) printf("Loading keymap at line %d\n", line);
 
+        // Keymaps may redefine scanline period for games with special
+        // requirements about the CRT timing.
+        if (!memcmp(p,"SCANLINE-PERIOD:",16)) {
+            int period = atoi(p+16);
+            if (period > 0 && period < 500 && EMU.loaded_game != game_id)
+                EMU.zx.scanline_period = period;
+            goto next_line;
+        }
+
         // Turn this line into three bytes map entry using an helper
         // function.
         int used_bytes;
@@ -1114,26 +1123,15 @@ void load_game(int game_id) {
     // too much time and start deleting the sprites at the old positions...
     // Here we handle such exceptions.
     //
-    // Note that if the loaded game is already the same, we don't change
-    // the scanline period. This is useful to try different values using
-    // the settings.
-    if (EMU.loaded_game != game_id) {
+    // So here we set this default, but the keymap file may change
+    // the scanline period for game-specific tweaks using the
+    // SCANLINE-PERIOD: directive.
+    if (EMU.loaded_game != game_id)
         EMU.zx.scanline_period = ZX_DEFAULT_SCANLINE_PERIOD;
-        if (!strcmp(g->name,"Bmxsim") ||
-            !strcmp(g->name,"Thrust"))
-        {
-            EMU.zx.scanline_period += 20; // Some extra time to render sprites.
-        } else if (!strcmp(g->name,"Skooldaze")) {
-            // In case of Skool Daze there are no synchronization issues,
-            // but we can set a lower value for the scanline period in
-            // order to make our guy a faster walker :D.
-            EMU.zx.scanline_period = 85;
-        }
-    }
 
     // Load game and matching keymap (if any)
     zx_quickload(&EMU.zx, r);
-    get_keymap_for_current_game();
+    get_keymap_for_current_game(game_id);
 
     EMU.loaded_game = game_id;
     set_sys_clock_khz(EMU.emu_clock, false); sleep_us(50);

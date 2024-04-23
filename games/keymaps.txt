@@ -40,8 +40,9 @@ d|f|u   Up + fire combo for simpler playing
 u5|u
 @10:41  Press 4 at frame 10 to select Kempstone
 
-# Thrust
+# Thrust. Give it a bit more redrawing time with scanline period of 170.
 MATCH:>>>THRUST<<<
+SCANLINE-PERIOD:170
 la|l
 rs|r
 fim
@@ -73,8 +74,10 @@ u4|u
 @50:n1      No player 2
 
 # BMX simulator
+# Give it a bit more redrawing time with scanline period of 170.
 MATCH:BMX
 AND-MATCH:6COURSE|RACE|PRESS 9A 9FOR 6ACTION
+SCANLINE-PERIOD:170
 l6      6 = left
 r7      7 = right
 f0      0 = accelerate
@@ -83,7 +86,9 @@ us      S = start game
 
 # Skooldaze. Here there are too many keys, so we resort
 # to extended mapping.
+# Also set a scanline period if 85 to make the game faster.
 MATCH:YOU HAVE OVER 10000 LINES TO WRITE
+SCANLINE-PERIOD:85
 xdlf        Down+left = fire capatult
 xuls        Up+left = sit down/up
 xurl        Up+right = leap
