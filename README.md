@@ -6,10 +6,10 @@ This project is specifically designed for the Raspberry Pico and ST77xx based di
 
 ## Main features
 
-* **Pico -> Spectrum key mapping** with each pin mapped up to two Spectrum keys or Kempstone joystick moves. Each game has its own key map, taking advantage of mapping to make games easier to play on portable devices: for instance Jetpac maps a single key (down key) to up + fire. Key macros are used in order to automatically trigger key presses when given frames are reached, to select the kempstone joystick, skip key redefinition, and other things otherwise impossible with few buttons available on the device.
+* **Pico -> Spectrum key mapping** with each pin mapped up to two Spectrum keys or Kempstone joystick moves. Each game has its own key map, taking advantage of mapping to make games easier to play on portable devices: for instance Jetpac maps a single key (down key) to up + fire. Key macros are used in order to automatically trigger key presses when given frames are reached, to select the kempstone joystick, skip key redefinition, and other things otherwise impossible with few buttons available on the device. No need to recompile to add keymaps.
 * A **minimal ST77xx display driver is included**, written specifically for this project. It has just what it is needed to initialize the display and refresh the screen with the Spectrum frame buffer content. It works both with SPI and 8-wires parallel interfaces and is optimized for fast bulk refreshes.
 * The emulator has an **UI that allows to select games** into a list, change certain emulation settings and so forth.
-* **Easy games upload**, with a script to create a binary image of Z80 games and transfer it into the Pico flaash. **Important:**, I will try to include games for which the owners provided permission, for now you have to copy the Z80 files yourself. Check the list of games for the games that already have a defined keymap.
+* **Easy games upload**, with a script to create a binary image of Z80 games and transfer it into the Pico flash. Games don't need to match the keymap by name: grepping inside memory for known strings is used instead, so you can create your own Z80 snapshots files, and still defined keymaps will work.
 * **Real time upscaling and downscaling** of video, to use the emulator with displays that are larger or smaller than the Spectrum video output. The emulator is also able to remove borders.
 * **Crazy overclocking** to make it work fast enough :D **Warning**: the code must run from the Pico RAM, and not in the memory mapped flash, otherwise it's not possible to go at 400Mhz. This is achieved simply with `pico_set_binary_type(zx copy_to_ram)` in `CMakeList.txt`. There are no problems accessing the flash to load games, because the code down-clocks the CPU when loading games, and then returns at a higher overclocking speeds immediately after.
 
@@ -22,9 +22,9 @@ The fantastic emulator I used as a base for this project was not designed for ve
 * Emulation performances were improved by rewriting video decodincg and modifying the Z80 implementation to cheat a bit (well, a lot): many steps of instruction fetching were combined together, slow instructions executed in less cycles, memory accesses done directly inside the Z80 emulation tick, and so forth. This makes the resulting emulator no longer cycle accurate, but otherwise we could go at best at 60% of the speed of real hardware, which is not enough for a nice gaming experience.
 * Audio support was completely rewritten using the Pico second core and double buffering. We have two issues with the RP2040. One is memory. Fortunately there is no need to go from 1 bit music to 16bit samples that will then drive a speaker exactly with 1 bit of actual resolution. It makes sense in the original emulator, since the audio device of a real computer will accept proper 16 bit audio samples, but in the Pico we just drive a pin with a connected speaker. So this repository implements a bitmap audio buffer, reducing the memory usage by a factor of 32. Another major problem is that we are emulating the Spectrum native speed by running without pauses: there is no way to be sure about the exact timing of a full tick (different sequences of instructions run at different speed), and the audio must be played as it is produced (in the original emulator it was assumed that the CPU of the host computer was able to emulate the Spectrum much faster, take the audio buffer, and put the samples in the audio output queue). So I used double buffering, and as the Z80 produces the music we play the other half of the buffer in the other thread, with adaptive timing. The result is recognizable audio even if the quality is not superb.
 
-With this changes, when the Pico is overclocked at 400Mhz (default of this code, **with cpu voltage set to 1.3V**), the emulation speed is more or less the same as a real ZX Spectrum 48K in most games. If you want to go slower (simpler to play games, and certain Picos may not run well at 400Mhz) press the right button when powering up: this will select 300Mhz.
+With this changes, when the Pico is overclocked at 400Mhz (default of this code, **with cpu voltage set to 1.3V**), the emulation speed matches a real ZX Spectrum 48K. If you want to go slower (simpler to play games, and certain Picos may not run well at 400Mhz) press the right button when powering up: this will select 300Mhz.
 
-Please note that a few of this changes are particularly "breaking", but they are a needed compromise with performances on the RP2040 and good frame rate. A 20 FPS emulator that runs very smoothly is a nice thing, but breaking the Z80 precise clock breaks certain games. Moreover, the way we plot the video memory instantaneously N times per second is different than what the ULA does: a game may try to "follow" the CRT beam (for example removing the old sprites once it is sure the beam is over a given part). Most games are resilient to these inconsistencies with the original hardware, but when it's an issue, we resort to game specific tuning of the emulator timing parameters.
+Please note that a few of this changes are somewhat breaks the emulation accuracy of the original emulator, but they are a needed compromise with performances on the RP2040 and good frame rate. A 20 FPS emulator that runs very smoothly is a nice thing, but breaking the Z80 precise clock may mess a bit with certain games and demos. Moreover, the way we plot the video memory instantaneously N times per second is different than what the ULA does: a game may try to "follow" the CRT beam (for example removing the old sprites once it is sure the beam is over a given part). Most games are resilient to these inconsistencies with the original hardware, but when it's an issue, we resort to game specific tuning of the emulator timing parameters (see the keymap file inside the `games` directory).
 
 ## Motivations for this project
 
@@ -67,14 +67,83 @@ If you build from sources:
 
 * Install `picotool` (`pip install picotool`, or alike) and the Pico SDK.
 * Create a `device_config.h` file in the main directory. For the Pimoroni Tufty 2040 just do `cp devices/tufty2040.h device_config.h`. Otherwise if you have some different board, or you made one by hand with a Pico and an ST77xx display, just check the self-commented example file under the `devices` directory and create a configuration for your setup: it's easy, just define your pins and the display interface (SPI/parallel).
-* Transfer the games images on the flash. Enter the `games` directory, add your games `.z80` files there if you want, otherwise there is a just a single demo already included (Note: the games may be under copyright, I'm not responsible in case you use copyrighted material without permission), see the games list for games that already have a keymap defined, also check `keymaps.h` to see how to name the `.z80` file for each game. For instance Jetpac should be named `jetpac.z80`. Put the Pico in boot mode and run the `loadgames.py` Python program: this program will generate the game list header (used in the next step) and will upload the games to the device flash memory.
 * Compile with: `mkdir build; cd build; cmake ..; make`.
-* If you get compilation errors about keymap files, either the .z80 file was not copyed inside `games` with a name matching the keymap, or a keymap is not defined for that game inside `keymaps.h`.
-* Transfer the `zx.uf2` file to your Pico (put it in boot mode pressing the boot button as you power up the device, then drag the file in the `RPI-RP2` drive you see as a USB drive).
+* Transfer the resulting `zx.uf2` file to your Pico (put it in boot mode pressing the boot button as you power up the device, then drag the file in the `RPI-RP2` drive you see as a USB drive).
 
 ## Installation from pre-built images
 
-For the Tufty 2040 I'll add an UF2 file with a few games included. For now I had to remove it, because of games copyright concerns. I need to understand which Spectrum games can be freely distributed.
+For the Tufty 2040 there is a ready to flash UF2 file inside the `uf2` directory.
+
+## Adding games
+
+If you run the emualtor just after the installation, you will see the Spectrum BASIC screen and a text telling you there are no loaded games in the emulator.
+
+To upload games:
+
+* Enter the `games` directory.
+* Copy your games snapshots (.Z80 files) inside the Z80 directory. There is already a demo made in the 90s there.
+* Check if there is already a keymap defined for your games in the `keymaps.txt` file inside the `games` directory. Games without a keymap defined will likely not work with the default keymap, often to start the game pressing some key is needed, also to select a joystick and so forth. To add a keymap, see the next section. Otherwise, to start more easily, just use the games for which there is already a keymap defined (see list below).
+* Put the Pico in boot mode (power-off, press BOOT button, power-on while the button is pressed), with the Pico connected via USB to your computer.
+* Run the ./loadgames.py script to uplodate the game image.
+
+The `loadgames.py` will contactenate the Z80 files and the keymap file and will store it into the flash. The bundle can be stored everywhere as long as the address is a multiple of 4096 and does not overwrite the emulator program itself.
+
+Now, if you power-up the emualtor, you will see the list of games.
+
+## Creating keymaps
+
+A keymap maps your define buttons (pins, actually) to Spectrum buttons and joystick moves. This is a very simple keymap for Jetpac:
+
+```
+# Jetpack.
+MATCH:JETPAC IS LOADING
+l1|l
+r2|r
+f4|f
+d|f|u   Up + fire combo for simpler playing
+u5|u
+@10:41  Press 4 at frame 10 to select Kempstone
+```
+
+Lines starting with `#` are just comments.
+Then there is a mandatory first line called `MATCH:`. This line will grep the Spectrum memory content (after loading the game) looking for strings matching the game. This way the Jetpac keymap above, will work with Z80 files obtained in different ways, they don't have to be specially named, or to exactly match a given digest or alike. If you want to create a keymap for a game, just open the Z80 file with some editor and look for some unique string to match.
+
+Sometimes it is needed to match multiple strings to be sure that it's a given game. For example the Bombjack keymap uses this match lines:
+
+```
+MATCH:Elite Systems Presents
+AND-MATCH:BEST BOMBERS
+```
+
+You can have all the `AND-MATCH` statements you want.
+
+Then, there are the actual mapping information. They are of three types:
+
+1. Standard mapping, like `l12`, which means map button left pin (as defined in `device_config.h`) to Spectrum keys '1' and '2' (each button on your device can control up to two keys in the Spectrum). You can just write `rx` if you want to associate the left button on your device to a single Spectrum key, `x` in this case.
+2. Extended mapping, like `xur0`, which maps *two* device buttons to a single Spectrum key. This is needed for games where 5 buttons are not enough, so combinations of those buttons are needed.
+3. Macro mappings, pressing keys automatically at a given frame during the game execution. For instance `@20:k2` means: at frame 20 press the key `k` for two frames. Then release it.
+
+There are a few special things to know about mappings.
+
+* Device keys are called `l`, `r`, `u`, `d`, `f`: left, right, up, down, fire.
+* To map to the space key, ~ is used. So `f~` will map the fire button to the Spectrum space.
+* You can map buttons to Kempston joystick movements using the special | character: `l|l` means map the device left button to the joystick left movement.
+* Extended devices are just `x<device-button1><device-button2><spectrum-key>`. See the example above.
+* Macros use "frames" as timer. To create a new map, to make sure when you want to do certain actions, just power-up the device with the left button pressed: a frames counter will show up in the left-top corner, so you can see when it's the right frame to trigger actions.
+
+Certain games have specific requirements about the CRT refresh. Since this emulator does not emulate the CRT, but writes the video memory directly on the display (even if it makes sure to respect the vertical blank interrupt in order to do so). If you see sprites flickering, you may want to use this special directive `SCANLINE-PERIOD` in the keymap. See the example below.
+
+```
+# Thrust. Give it a bit more redrawing time with scanline period of 170.
+MATCH:>>>THRUST<<<
+SCANLINE-PERIOD:170
+la|l
+rs|r
+fim
+dm|d
+up|u
+@20:n1      Do you want to refine keys? [N]o
+```
 
 ## Usage
 
@@ -85,7 +154,7 @@ For the Tufty 2040 I'll add an UF2 file with a few games included. For now I had
 
 ## Games compatibility
 
-This repository has keymaps that work with the following games:
+This repository includes keymaps that work with the following games:
 
 * [Jetpac](https://en.wikipedia.org/wiki/Jetpac)
 * [Loderunner](https://en.wikipedia.org/wiki/Lode_Runner)
@@ -101,19 +170,9 @@ This repository has keymaps that work with the following games:
 
 ## Demos compatibility
 
+This is the only demo I tested so far:
+
 * [3D Show](https://worldofspectrum.net/item/0007729/) (19xx), Vektor Graphix.
-
-## Games keymaps
-
-If you have doubts about what keys to use for a given file, make sure to check the **keymaps.h** file inside this repository. There you will find a keymap for each game, with comments telling you what each key does what and why.
-
-## Adding games
-
-1. Copy the game Z80 file into the `games` directory. Use a very short name without special characters.
-2. Generate the game table and load the new binary image of the games using the `loadgames.py` script. Before running the script, put the Pico in boot mode.
-3. Add a keymap for the game, editing the `keymaps.h` file using the other keymaps as example.
-4. Recompile the project.
-5. Transfer the new UF2 image to the Pico.
 
 ## Using this emulator for commercial purposes
 
