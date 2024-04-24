@@ -50,5 +50,6 @@
 #define st77_inversion 1
 #define st77_offset_x 0
 #define st77_offset_y 0
+#define st77_isbgr 0
 
 /* === END OF CONFIG === */

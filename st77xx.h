@@ -335,6 +335,7 @@ void st77xx_init(void) {
     if (st77_landscape) madctl |= 0x20;
     if (st77_mirror_x) madctl |= 0x40;
     if (st77_mirror_y) madctl |= 0x80;
+    if (st77_isbgr) madctl |= 0x08;
     st77xx_cmd1(0x36,madctl);
     st77xx_cmd(st77_inversion ? 0x21 : 0x20); // Inversion
     sleep_ms(10);

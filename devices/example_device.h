@@ -90,6 +90,9 @@
 #define st77_inversion 1    // If colors are inverted, toggle this to 0 or 1.
 #define st77_offset_x 0     // Image not centered? Play with this offset.
 #define st77_offset_y 0     // Note: offsets may depend on landscape/mirroring.
+#define st77_isbgr 0        // Set to 1 if it's a BGR and not RGB display.
+                            // In practical terms, if colors look "inverted"
+                            // (yellow is cyan and the contrary) set to 1.
 
 /* =========================== SCREEN RENDERING CONFIG =======================
  * Here you can set how the Spectrum video memory is rendered on your display.
