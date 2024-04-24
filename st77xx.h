@@ -9,6 +9,9 @@
 // are used for other goals.
 #define st77_parallel_bb
 
+// If defined, use bitbanging for the SPI interface too.
+#define st77_spi_bb
+
 #ifndef st77_parallel_bb
 #include "hardware/dma.h"
 #include "hardware/pio.h"
@@ -30,10 +33,17 @@ void st77xx_init_spi(void) {
         gpio_init(st77_cs);
         gpio_set_dir(st77_cs,GPIO_OUT);
     }
+#ifndef st77_spi_bb
     spi_init(spi_channel,spi_rate);
     spi_set_format(spi_channel, 8, spi_polarity, spi_phase, SPI_MSB_FIRST);
     gpio_set_function(st77_sck,GPIO_FUNC_SPI);
     gpio_set_function(st77_mosi,GPIO_FUNC_SPI);
+#else
+    gpio_init(st77_sck);
+    gpio_init(st77_mosi);
+    gpio_set_dir(st77_sck,GPIO_OUT);
+    gpio_set_dir(st77_mosi,GPIO_OUT);
+#endif
 }
 #endif
 
@@ -248,13 +258,59 @@ void parallel_write_blocking(void *data, uint32_t datalen) {
 #endif
 #endif
 
+#ifdef st77_use_spi
+#ifdef st77_spi_bb
+void spi_write_bb_blocking(void *data, uint32_t datalen) {
+    uint8_t *d = data;
+    for (int j = 0; j < datalen; j++) {
+        uint8_t byte = d[j];
+        for (unsigned int bit = 0x80; bit > 0; bit >>= 1) {
+            // Set data bit on MOSI.
+            gpio_put(st77_mosi,!!(byte&bit));
+            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            __asm volatile ("nop\n");
+
+#if 0
+            // clock
+            gpio_put(st77_sck,1);
+            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            __asm volatile ("nop\n");
+#endif
+
+            // clock
+            gpio_put(st77_sck,0);
+            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            __asm volatile ("nop\n");
+
+            // clock
+            gpio_put(st77_sck,1);
+            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            __asm volatile ("nop\n");
+        }
+    }
+}
+#endif
+#endif
+
 /* Send command and/or data. */
 void st77xx_write(uint8_t cmd, void *data, uint32_t datalen) {
     if (st77_cs != -1) gpio_put(st77_cs,0);
     if (cmd != 0) {
         gpio_put(st77_dc,0);
 #ifdef st77_use_spi
+#ifdef st77_spi_bb
+        spi_write_bb_blocking(&cmd,1);
+#else
         spi_write_blocking(spi_channel,&cmd,1);
+#endif
 #else
         parallel_write_blocking(&cmd,1);
 #endif
@@ -262,7 +318,11 @@ void st77xx_write(uint8_t cmd, void *data, uint32_t datalen) {
     if (data != NULL) {
         gpio_put(st77_dc,1);
 #ifdef st77_use_spi
+#ifdef st77_spi_bb
+        spi_write_bb_blocking(data,datalen);
+#else
         spi_write_blocking(spi_channel,data,datalen);
+#endif
 #else
         parallel_write_blocking(data,datalen);
 #endif
