@@ -410,10 +410,10 @@ void ui_set_area_attributes(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2)
 // If the menu is active, draw it.
 void ui_draw_menu(void) {
     // Draw the menu in the right / top part of the screen.
-    int menu_x = st77_width/2;
-    int menu_w = st77_width/2-5;
+    int menu_x = 255-100;
+    int menu_w = 100;
     int menu_y = 0;
-    int menu_h = (st77_height/2); // Use half height;
+    int menu_h = 192/3*2;
     int font_size = 2;
     menu_h -= menu_h&(8*font_size-1); // Make multiple of font pixel size;
     int vpad = 2;       // Vertical padding of text inside the box.
