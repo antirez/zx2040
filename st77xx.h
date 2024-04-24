@@ -1,7 +1,9 @@
-#include "hardware/spi.h"
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
+#ifndef st77_spi_bb
+#include "hardware/spi.h"
+#endif
 
 // Undefine this to use big banging to implement the parallel protocol.
 // Otherwise PIO with DMA will be used. Bitbanging is slower but allows
@@ -10,7 +12,7 @@
 #define st77_parallel_bb
 
 // If defined, use bitbanging for the SPI interface too.
-#define st77_spi_bb
+// #define st77_spi_bb
 
 #ifndef st77_parallel_bb
 #include "hardware/dma.h"
@@ -265,35 +267,32 @@ void spi_write_bb_blocking(void *data, uint32_t datalen) {
     for (int j = 0; j < datalen; j++) {
         uint8_t byte = d[j];
         for (unsigned int bit = 0x80; bit > 0; bit >>= 1) {
+            /* Phase 1 SPI: set data bit, clock high, wait, clock low. */
+            #if spi_phase == 1
             // Set data bit on MOSI.
             gpio_put(st77_mosi,!!(byte&bit));
-            __asm volatile ("nop\n"); __asm volatile ("nop\n");
-            __asm volatile ("nop\n"); __asm volatile ("nop\n");
-            __asm volatile ("nop\n"); __asm volatile ("nop\n");
+            #endif
+
+            // clock activate
+            gpio_put(st77_sck,spi_polarity);
+
+            /* Phase 0 SPI: clock high, set data bit, wait, clock low. */
+            #if spi_phase == 0
+            // Set data bit on MOSI.
+            gpio_put(st77_mosi,!!(byte&bit));
+            #endif
+
             __asm volatile ("nop\n");
 
-#if 0
-            // clock
-            gpio_put(st77_sck,1);
-            __asm volatile ("nop\n"); __asm volatile ("nop\n");
-            __asm volatile ("nop\n"); __asm volatile ("nop\n");
-            __asm volatile ("nop\n"); __asm volatile ("nop\n");
-            __asm volatile ("nop\n");
-#endif
+            // clock deactivate: read bit
+            gpio_put(st77_sck,!spi_polarity);
 
-            // clock
-            gpio_put(st77_sck,0);
-            __asm volatile ("nop\n"); __asm volatile ("nop\n");
-            __asm volatile ("nop\n"); __asm volatile ("nop\n");
-            __asm volatile ("nop\n"); __asm volatile ("nop\n");
-            __asm volatile ("nop\n");
-
-            // clock
-            gpio_put(st77_sck,1);
-            __asm volatile ("nop\n"); __asm volatile ("nop\n");
-            __asm volatile ("nop\n"); __asm volatile ("nop\n");
-            __asm volatile ("nop\n"); __asm volatile ("nop\n");
-            __asm volatile ("nop\n");
+            // Here we should have the following wait cycle:
+            //
+            // __asm volatile ("nop\n");
+            //
+            // But actually the for loop control condition
+            // itself will be enough.
         }
     }
 }

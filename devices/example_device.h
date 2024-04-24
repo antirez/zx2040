@@ -60,6 +60,15 @@
 #define st77_rst 7          // -1 if your display lacks a reset pin.
 #define st77_dc 6
 #define st77_cs -1          // -1 if your display lacks a CS pin.
+
+/* Software SPI:
+ *
+ * If you want to go fast with SPI transfers (less display update latency)
+ * you can use the big banging software SPI implementation. I suggest first
+ * testing the emulator with the standard hardware SPI, then checking the
+ * Pico serial output to see the update time, and switch to bit banging if
+ * needed. */
+// #define st77_spi_bb
 #endif
 
 // For parallel 8 lines display, fill the configuration here:
