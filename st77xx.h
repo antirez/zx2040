@@ -6,12 +6,19 @@
 #endif
 
 // Undefine this to use big banging to implement the parallel protocol.
-// Otherwise PIO with DMA will be used. Bitbanging is slower but allows
-// to drive the display if all the PIO state machines or the PIO FIFO
-// are used for other goals.
+// Otherwise PIO with DMA will be used. Performances are similar if
+// the Pico is overclocked higher enough. You can also hack the timing
+// removing or adding NOPs in the function parallel_write_blocking().
+//
+// We use bigbanging by default since:
+// 1. Anyway most apps will want a blocking update. If you don't want
+//    a blocking update, than PIO+DMA may make more sense.
+// 2. Big banging seems more stable under different overclocking conditions.
 #define st77_parallel_bb
 
 // If defined, use bitbanging for the SPI interface too.
+// SPI bitbanging reaches faster speeds than the SPI hardware implementation.
+// At 400Mhz overclock, max SPI speed was 24Mhz, vs ~60Mhz of bitbanging.
 // #define st77_spi_bb
 
 #ifndef st77_parallel_bb
