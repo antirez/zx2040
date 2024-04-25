@@ -482,13 +482,14 @@ uint16_t palette_to_565(uint32_t color) {
 //
 // Valid scaling arguments:
 //
-// 100 (or any other invalid value): no scaling
-// 112: 112% upscaling
-// 125: 125% upscaling
-// 150: 150% upscaling
 // 50: 50% downscaling
 // 75: 75% downscaling
 // 83: 83% downscaling
+// 100 (or any other invalid value): no rescaling
+// 112: 112% upscaling
+// 125: 125% upscaling
+// 150: 150% upscaling
+// 200: 200% upscaling
 //
 // BORDERS:
 // If border is false, borders are not drawn at all.

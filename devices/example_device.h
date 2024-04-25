@@ -116,7 +116,7 @@
  * disable borders and use an upscaling of 125, so that the 256x192 bitmap
  * area gets scaled exactly to 320x240.
  *
- * Scaling factors supported: 50%, 75%, 84%, 100%, 112%, 125%, 150%.
+ * Scaling factors supported: 50%, 75%, 84%, 100%, 112%, 125%, 150%, 200%.
  */
 #define DEFAULT_DISPLAY_SCALING 100  // Not all values possible, see above.
 #define DEFAULT_DISPLAY_BORDERS 1    // 0 = no borders. 1 = borders.
