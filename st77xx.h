@@ -52,6 +52,7 @@ void st77xx_init_spi(void) {
     gpio_init(st77_mosi);
     gpio_set_dir(st77_sck,GPIO_OUT);
     gpio_set_dir(st77_mosi,GPIO_OUT);
+    gpio_put(st77_sck,spi_polarity);
 #endif
 }
 #endif
@@ -274,32 +275,23 @@ void spi_write_bb_blocking(void *data, uint32_t datalen) {
     for (int j = 0; j < datalen; j++) {
         uint8_t byte = d[j];
         for (unsigned int bit = 0x80; bit > 0; bit >>= 1) {
-            /* Phase 1 SPI: set data bit, clock high, wait, clock low. */
+            /* Phase 1 SPI */
             #if spi_phase == 1
-            // Set data bit on MOSI.
-            gpio_put(st77_mosi,!!(byte&bit));
+            gpio_put(st77_sck,!spi_polarity);   // Activate clock
+            gpio_put(st77_mosi,!!(byte&bit));   // and data bit
+            __asm volatile ("nop\n");           // wait
+            gpio_put(st77_sck,spi_polarity);    // Deactivate clock
+            __asm volatile ("nop\n");           // wait
             #endif
 
-            // clock activate
-            gpio_put(st77_sck,spi_polarity);
-
-            /* Phase 0 SPI: clock high, set data bit, wait, clock low. */
+            /* Phase 0 SPI */
             #if spi_phase == 0
-            // Set data bit on MOSI.
-            gpio_put(st77_mosi,!!(byte&bit));
+            gpio_put(st77_mosi,!!(byte&bit));   // Set data
+            __asm volatile ("nop\n");           // wait
+            gpio_put(st77_sck,!spi_polarity);   // Activate clock
+            __asm volatile ("nop\n");           // wait
+            gpio_put(st77_sck,spi_polarity);    // Deactivate clock
             #endif
-
-            __asm volatile ("nop\n");
-
-            // clock deactivate: read bit
-            gpio_put(st77_sck,!spi_polarity);
-
-            // Here we should have the following wait cycle:
-            //
-            // __asm volatile ("nop\n");
-            //
-            // But actually the for loop control condition
-            // itself will be enough.
         }
     }
 }
