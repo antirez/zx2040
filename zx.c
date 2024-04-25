@@ -545,18 +545,30 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
     uint32_t xx_start = 0; // Offsets into Spectrum video, for centering.
     uint32_t yy_start = 0;
 
-    if (st77_height < zx_height) {
-        yy_start += (zx_height-st77_height)>>1;
-        v_border = 0;
-    } else {
-        v_border = (st77_height-zx_height)>>1;
-    }
-
+    // To center, we start checking if our display screen size is smaller
+    // than the scaled Spectrum display. Then, after we get the starting
+    // x,y offset pixel in the Spectrum VMEM, to correctly center the image
+    // we need to resize x/y offset proportionally to the scaling we are using.
     if (st77_width < zx_width) {
         xx_start += (zx_width-st77_width)>>2;
+
+        // Scale offset to video memory actual size.
+        xx_start = dup ? (xx_start*(dup_mask+1)) / (dup_mask+2) :
+                         (xx_start*(dup_mask+2)) / (dup_mask+1);
         h_border = 0;
     } else {
         h_border = (st77_width-zx_width)>>1;
+    }
+
+    if (st77_height < zx_height) {
+        yy_start += (zx_height-st77_height)>>1;
+
+        // Scale offset to video memory actual size.
+        yy_start = dup ? (yy_start*(dup_mask+1)) / (dup_mask+2) :
+                         (yy_start*(dup_mask+2)) / (dup_mask+1);
+        v_border = 0;
+    } else {
+        v_border = (st77_height-zx_height)>>1;
     }
 
     // Transfer data to the display.
