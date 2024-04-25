@@ -19,14 +19,14 @@ This project is specifically designed for the Raspberry Pico and ST77xx based di
 
 The fantastic emulator I used as a base for this project was not designed for very small devices. It was rather optimized for the elegance of the implementation (you have self-contained emulated chips that are put together with the set of returned pins states) and very accurate emulation. To make it run on the Pico, I had to modify the emulator in the following ways:
 
-* In order to work with the small amount of RAM available in the RP2040, only the Spectrum 48k version is emulated, the 128k code and allocations were removed. The video decoding was also removed. Now the decoding is performed on the fly in the screen update function of the emulator, by reading directly from the Spectrum video memory (this also provideded a strong speedup).
+* In order to work with the small amount of RAM available in the RP2040, only the Spectrum 48k version is emulated, the 128k code and allocations were removed. The video decoding was also removed. Now the decoding is performed on the fly in the screen update function of the emulator, by reading directly from the Spectrum video memory (this also provided a strong speedup).
 * The emulator UI itself is rendered directly inside the Spectrum video memory in order to save memory.
-* Emulation performances were improved by rewriting video decodincg and modifying the Z80 implementation to cheat a bit (well, a lot): many steps of instruction fetching were combined together, slow instructions executed in less cycles, memory accesses done directly inside the Z80 emulation tick, and so forth. This makes the resulting emulator no longer cycle accurate, but otherwise we could go at best at 60% of the speed of real hardware, which is not enough for a nice gaming experience.
+* Emulation performances were improved by rewriting video decoding and modifying the Z80 implementation to cheat a bit (well, a lot): many steps of instruction fetching were combined together, slow instructions executed in less cycles, memory accesses done directly inside the Z80 emulation tick, and so forth. This makes the resulting emulator no longer cycle accurate, but otherwise we could go at best at 60% of the speed of real hardware, which is not enough for a nice gaming experience.
 * Audio support was completely rewritten using the Pico second core and double buffering. We have two issues with the RP2040. One is memory. Fortunately there is no need to go from 1 bit music to 16bit samples that will then drive a speaker exactly with 1 bit of actual resolution. It makes sense in the original emulator, since the audio device of a real computer will accept proper 16 bit audio samples, but in the Pico we just drive a pin with a connected speaker. So this repository implements a bitmap audio buffer, reducing the memory usage by a factor of 32. Another major problem is that we are emulating the Spectrum native speed by running without pauses: there is no way to be sure about the exact timing of a full tick (different sequences of instructions run at different speed), and the audio must be played as it is produced (in the original emulator it was assumed that the CPU of the host computer was able to emulate the Spectrum much faster, take the audio buffer, and put the samples in the audio output queue). So I used double buffering, and as the Z80 produces the music we play the other half of the buffer in the other thread, with adaptive timing. The result is recognizable audio even if the quality is not superb.
 
 With this changes, when the Pico is overclocked at 400Mhz (default of this code, **with cpu voltage set to 1.3V**), the emulation speed matches a real ZX Spectrum 48K. If you want to go slower (simpler to play games, and certain Picos may not run well at 400Mhz) press the right button when powering up: this will select 300Mhz.
 
-Please note that a few of this changes are somewhat breaks the emulation accuracy of the original emulator, but they are a needed compromise with performances on the RP2040 and good frame rate. A 20 FPS emulator that runs very smoothly is a nice thing, but breaking the Z80 precise clock may mess a bit with certain games and demos. Moreover, the way we plot the video memory instantaneously N times per second is different than what the ULA does: a game may try to "follow" the CRT beam (for example removing the old sprites once it is sure the beam is over a given part). Most games are resilient to these inconsistencies with the original hardware, but when it's an issue, we resort to game specific tuning of the emulator timing parameters (see the keymap file inside the `games` directory).
+Please note that a few of this changes are somewhat breaking the emulation accuracy of the original emulator, but they are a needed compromise with performances on the RP2040 and good frame rate. A 20 FPS emulator that runs very smoothly is a nice thing, but breaking the Z80 precise clock may mess a bit with certain games and demos. Moreover, the way we plot the video memory instantaneously N times per second is different than what the ULA does: a game may try to "follow" the CRT beam (for example removing the old sprites once it is sure the beam is over a given part). Most games are resilient to these inconsistencies with the original hardware, but when it's an issue, we resort to game specific tuning of the emulator timing parameters (see the keymap file inside the `games` directory).
 
 ## Motivations for this project
 
@@ -78,7 +78,7 @@ For the Tufty 2040 there is a ready to flash UF2 file inside the `uf2` directory
 
 ## Adding games
 
-If you run the emualtor just after the installation, you will see the Spectrum BASIC screen and a text telling you there are no loaded games in the emulator.
+If you run the emulator just after the installation, you will see the Spectrum BASIC screen and a text telling you there are no loaded games in the emulator.
 
 To upload games:
 
@@ -86,11 +86,11 @@ To upload games:
 * Copy your games snapshots (.Z80 files) inside the Z80 directory. There is already a demo made in the 90s there.
 * Check if there is already a keymap defined for your games in the `keymaps.txt` file inside the `games` directory. Games without a keymap defined will likely not work with the default keymap, often to start the game pressing some key is needed, also to select a joystick and so forth. To add a keymap, see the next section. Otherwise, to start more easily, just use the games for which there is already a keymap defined (see list below).
 * Put the Pico in boot mode (power-off, press BOOT button, power-on while the button is pressed), with the Pico connected via USB to your computer.
-* Run the ./loadgames.py script to uplodate the game image.
+* Run the ./loadgames.py script to upload the game image.
 
 The `loadgames.py` will contactenate the Z80 files and the keymap file and will store it into the flash. The bundle can be stored everywhere as long as the address is a multiple of 4096 and does not overwrite the emulator program itself.
 
-Now, if you power-up the emualtor, you will see the list of games.
+Now, if you power-up the emulator, you will see the list of games.
 
 ## Creating keymaps
 
@@ -184,6 +184,6 @@ All the code here MIT licensed, so you are free to use this emulator for commerc
 
 About the ZX Spectrum ROM included in this repository, this is copyrighted material, and the current owner is the Sky Group, so if you want to do a commercial product using this code using also the ROM, you need to contact Sky Group. This is what happened so far:
 * The original owner was Sinclair, that was sold to Amstrad.
-* Amstrad agreed that having the ROMs as parts of NON commercial use was fair use. That's really cool, and one of the resons why Spectrum emulators are legal.
+* Amstrad agreed that having the ROMs as parts of NON commercial use was fair use. That's really cool, and one of the reasons why Spectrum emulators are legal.
 * Then Amstrad was sold to the Sky Group. Apparently the ZX Spectrum Next has official permission from the Sky Group to use the ROM. So the position of the Sky Group is yet very open.
-* However if you want to make anything commercial with the ROM, you need an official written permission. If you want to use this emualtor without the ROM, to run a snapshot image that does not use any code inside the ROM, you can just discard the ROM file, and use this emulator for any purpose.
+* However if you want to make anything commercial with the ROM, you need an official written permission. If you want to use this emulator without the ROM, to run a snapshot image that does not use any code inside the ROM, you can just discard the ROM file, and use this emulator for any purpose.
