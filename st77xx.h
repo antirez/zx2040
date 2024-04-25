@@ -398,6 +398,12 @@ void st77xx_init(void) {
     st77xx_cmd(st77_inversion ? 0x21 : 0x20); // Inversion
     sleep_ms(10);
 
+#if 0
+    // Set proch and frame rate
+    st77xx_write(0xb2, "\x0c\x0c\x00\x33\x33", 5); // Porch setting.
+    st77xx_cmd1(0xc6, 0x5); // Framerate = 90 Hz
+#endif
+
     st77xx_cmd(0x13); // Normal mode on
     sleep_ms(10);
 
