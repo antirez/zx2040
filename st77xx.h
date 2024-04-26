@@ -226,7 +226,7 @@ void parallel_write_blocking(void *data, uint32_t datalen) {
         // for (int i = 0; i < 8; i++)
         //     gpio_put(st77_d0+i,(byte>>i)&1);
         //
-        // Bit it's much faster to set them all in oen pass:
+        // Bit it's much faster to set them all in one pass:
         gpio_put_masked(0xff<<st77_d0,byte<<st77_d0);
         __asm volatile ("nop\n"); __asm volatile ("nop\n");
         __asm volatile ("nop\n");
@@ -277,8 +277,8 @@ void spi_write_bb_blocking(void *data, uint32_t datalen) {
         for (unsigned int bit = 0x80; bit > 0; bit >>= 1) {
             /* Phase 1 SPI */
             #if spi_phase == 1
-            gpio_put(st77_sck,!spi_polarity);   // Activate clock
             gpio_put(st77_mosi,!!(byte&bit));   // and data bit
+            gpio_put(st77_sck,!spi_polarity);   // Activate clock
             __asm volatile ("nop\n");           // wait
             gpio_put(st77_sck,spi_polarity);    // Deactivate clock
             __asm volatile ("nop\n");           // wait
