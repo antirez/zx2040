@@ -146,9 +146,8 @@ struct emustate {
     uint16_t ui_crop_x1, ui_crop_x2, ui_crop_y1, ui_crop_y2;
 
     uint8_t dirty_vram[24]; // Track rows that changed since last update.
-    uint8_t dirty_border;   // True if border color changed and we need to
-                            // update the border part of the display.
-    uint8_t dirty_border_prev_color; // Used to detect border color change.
+    uint8_t last_update_border_color; // Track last border color to update the
+                                      // screen border only if it changed.
 } EMU;
 
 /* ========================== Emulator user interface ======================= */
@@ -493,6 +492,7 @@ inline void vram_reset_dirty(void) {
 
 inline void vram_force_dirty(void) {
     memset(EMU.dirty_vram,0xff,sizeof(EMU.dirty_vram));
+    EMU.last_update_border_color = 0xff; // Impossible color: update forced.
 }
 
 // ZX Spectrum palette to RGB565 conversion. We do it at startup to avoid
@@ -612,11 +612,16 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
     // so we need counters relative to the Spectrum video, not the display.
     uint32_t yy = yy_start;
     const uint8_t *row;
+    int update_border = EMU.zx.border_color != EMU.last_update_border_color;
     uint16_t border_color = zxpalette[EMU.zx.border_color];
+
+    // If the border color changed, we need to force a full screen update.
+    if (update_border && EMU.show_border) vram_force_dirty();
 
     for (uint32_t y = 0; y < st77_height; y++) {
         // Handle top / bottom border
         if (EMU.show_border && (y < v_border || yy >= 192)) {
+            if (!update_border) continue;
             for (int j = 0; j < st77_width; j++) line[j] = border_color;
             st77xx_setwin(0, y, st77_width-1, y);
             st77xx_data(line,sizeof(line)-16);
@@ -708,7 +713,9 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
     for (int j = 0; j < 24; j++)
         printf("D[%d]: %02x\n", j, EMU.dirty_vram[j]);
     printf("\n");
+
     vram_reset_dirty();
+    EMU.last_update_border_color = EMU.zx.border_color;
 }
 
 // This function maps GPIO state to the Spectrum keyboard registers.
@@ -883,7 +890,7 @@ int populate_games_list(void) {
 void init_emulator(void) {
     // Set default configuration.
     EMU.debug = 0;
-    EMU.menu_active = 1;
+    EMU.menu_active = 0;
     EMU.base_clock = 280000;
     EMU.emu_clock = 400000;
     EMU.tick = 0;
@@ -895,7 +902,7 @@ void init_emulator(void) {
     EMU.volume = 20; // 0 to 20 valid values.
     EMU.brightness = ST77_MAX_BRIGHTNESS;
     EMU.audio_sample_wait = 300; // Adjusted dynamically.
-    vram_force_dirty();
+    vram_force_dirty(); // Fully update the first frame.
     ui_reset_crop_area();
 
     // Pico Init
@@ -1200,7 +1207,8 @@ void load_game(int game_id) {
 
     EMU.loaded_game = game_id;
     set_sys_clock_khz(EMU.emu_clock, false); sleep_us(50);
-    vram_force_dirty();
+    vram_force_dirty(); // Fully update the screen: we loaded a different
+                        // video content.
 }
 
 // This thread takes audio data from the main thread emulator context
@@ -1308,7 +1316,11 @@ int main() {
                 st77xx_set_brightness(EMU.brightness);
                 break;
             case UI_EVENT_SCALING:
+                vram_force_dirty();
                 st77xx_fill(0);
+                break;
+            case UI_EVENT_BORDER:
+                vram_force_dirty();
                 break;
             case UI_EVENT_CLOCK:
                 set_sys_clock_khz(EMU.emu_clock, false);
