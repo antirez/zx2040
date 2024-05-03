@@ -12,6 +12,11 @@
 #include "device_config.h" // Hardware-specific defines for ST77 and keys.
 #include "st77xx.h"
 
+// VRAM update tracking function, this is used inside mem.h.
+inline void vram_set_dirty_bitmap(uint16_t addr);
+inline void vram_set_dirty_attr(uint16_t addr);
+inline void vram_force_dirty(void);
+
 #define CHIPS_IMPL
 #include "chips_common.h"
 #include "mem.h"
@@ -102,7 +107,7 @@ uint32_t GamesTableSize;
 // more work per tick.
 #define FRAME_USEC (25000)
 
-static struct emustate {
+struct emustate {
     zx_t zx;    // The emulator state.
     int debug;  // Debugging mode
 
@@ -139,6 +144,11 @@ static struct emustate {
     // All our UI graphic primitives are automatically cropped
     // to the area selected by ui_set_crop_area().
     uint16_t ui_crop_x1, ui_crop_x2, ui_crop_y1, ui_crop_y2;
+
+    uint8_t dirty_vram[24]; // Track rows that changed since last update.
+    uint8_t dirty_border;   // True if border color changed and we need to
+                            // update the border part of the display.
+    uint8_t dirty_border_prev_color; // Used to detect border color change.
 } EMU;
 
 /* ========================== Emulator user interface ======================= */
@@ -457,10 +467,33 @@ void ui_draw_menu(void) {
         y += 8*font_size;
     }
     ui_reset_crop_area();
+    vram_force_dirty();
 }
 
 /* =========================== Emulator implementation ====================== */
 
+// Set a bitmap signaling which part of the screen RAM was touched and
+// is yet to be updated on the display. This function is called when the
+// address 'addr' is in the range of the VRAM bitmap area.
+inline void vram_set_dirty_bitmap(uint16_t addr) {
+    uint16_t y = ((addr&0x1800)>>5) | ((addr&0x700)>>8) | ((addr&0xe0)>>2);
+    EMU.dirty_vram[y>>3] |= 1 << (y&7);
+}
+
+// Like vram_set_dirty_bitmap() but called for addresses in the range
+// of the color attributes.
+inline void vram_set_dirty_attr(uint16_t addr) {
+    // Mark all the 8 rows affected in one operation.
+    EMU.dirty_vram[((addr-0x5800)>>5) & 31] = 0xff;
+}
+
+inline void vram_reset_dirty(void) {
+    memset(EMU.dirty_vram,0,sizeof(EMU.dirty_vram));
+}
+
+inline void vram_force_dirty(void) {
+    memset(EMU.dirty_vram,0xff,sizeof(EMU.dirty_vram));
+}
 
 // ZX Spectrum palette to RGB565 conversion. We do it at startup to avoid
 // burning CPU cycles later.
@@ -594,6 +627,7 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
 
         // Seek the row in the Spectrum VMEM
         row = vmem + (((yy & 0xC0)<<5) | ((yy & 0x07)<<8) | ((yy & 0x38)<<2));
+        uint32_t update_row = (EMU.dirty_vram[yy>>3] & (1<<(yy&7)));
         uint32_t xx = xx_start;
 
         // We increment x one whole byte at a time, and decode 8 pixels
@@ -607,13 +641,20 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
 
             uint32_t byte = xx>>3;
             uint8_t attr = vmem[0x1800+(((yy>>3)<<5)|byte)];
-            uint16_t fg, bg;
-            if (blink && (attr&0x80)) {
-                fg = zxpalette[(attr>>3)&7];
-                bg = zxpalette[(attr&7)];
-            } else {
-                bg = zxpalette[(attr>>3)&7];
-                fg = zxpalette[(attr&7)];
+            uint16_t fg, bg, aux;
+
+            bg = zxpalette[(attr>>3)&7];
+            fg = zxpalette[(attr&7)];
+
+            if (attr&0x80) { // Blink attribute.
+                update_row = 1; // With blink we no longer know the state
+                                // of the row. Tracking would likely not worth
+                                // it.
+                if (blink) {
+                    aux = fg;
+                    fg = bg;
+                    bg = aux;
+                }
             }
             for (int bit = 7; bit >= 0; bit--) {
                 uint16_t pixel_color = (row[byte] & (1<<bit)) ? fg : bg;
@@ -641,23 +682,33 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
         if (((yy+1)&dup_mask) == 0) {
             // Duplicate/skip row according to scaling mask.
             if (dup) {
-                st77xx_setwin(0, y, st77_width-1, y);
-                st77xx_data(line,sizeof(line)-16);
+                if (update_row) {
+                    st77xx_setwin(0, y, st77_width-1, y);
+                    st77xx_data(line,sizeof(line)-16);
+                }
                 y++;
-                st77xx_setwin(0, y, st77_width-1, y);
-                st77xx_data(line,sizeof(line)-16);
+                if (update_row) {
+                    st77xx_setwin(0, y, st77_width-1, y);
+                    st77xx_data(line,sizeof(line)-16);
+                }
             } else {
                 y--;    // Skip row.
             }
         } else {
             // If scaling does not affect this line, just
             // write it to the display.
-            st77xx_setwin(0, y, st77_width-1, y);
-            st77xx_data(line,sizeof(line)-16);
+            if (update_row) {
+                st77xx_setwin(0, y, st77_width-1, y);
+                st77xx_data(line,sizeof(line)-16);
+            }
         }
 
         yy++; // Next row.
     }
+    for (int j = 0; j < 24; j++)
+        printf("D[%d]: %02x\n", j, EMU.dirty_vram[j]);
+    printf("\n");
+    vram_reset_dirty();
 }
 
 // This function maps GPIO state to the Spectrum keyboard registers.
@@ -844,6 +895,7 @@ void init_emulator(void) {
     EMU.volume = 20; // 0 to 20 valid values.
     EMU.brightness = ST77_MAX_BRIGHTNESS;
     EMU.audio_sample_wait = 300; // Adjusted dynamically.
+    vram_force_dirty();
     ui_reset_crop_area();
 
     // Pico Init
@@ -1148,6 +1200,7 @@ void load_game(int game_id) {
 
     EMU.loaded_game = game_id;
     set_sys_clock_khz(EMU.emu_clock, false); sleep_us(50);
+    vram_force_dirty();
 }
 
 // This thread takes audio data from the main thread emulator context

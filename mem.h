@@ -157,6 +157,19 @@ static inline uint8_t mem_rd(mem_t* mem, uint16_t addr) {
 }
 /* write a byte to 16-bit address */
 static inline void mem_wr(mem_t* mem, uint16_t addr, uint8_t data) {
+    if (addr >= 0x4000 && addr <= 0x57ff) {
+        if (data !=
+        mem->page_table[addr>>MEM_PAGE_SHIFT].write_ptr[addr & MEM_PAGE_MASK])
+        {
+            vram_set_dirty_bitmap(addr);
+        }
+    } else if (addr >= 0x5800 && addr <= 0x5aff) {
+        if (data !=
+        mem->page_table[addr>>MEM_PAGE_SHIFT].write_ptr[addr & MEM_PAGE_MASK])
+        {
+            vram_set_dirty_attr(addr);
+        }
+    }
     mem->page_table[addr>>MEM_PAGE_SHIFT].write_ptr[addr & MEM_PAGE_MASK] = data;
 }
 /* helper method to write a 16-bit value, does 2 mem_wr() */
