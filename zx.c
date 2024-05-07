@@ -679,9 +679,11 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
             }
 
             // Stop if we reach the end of Spectrum row.
-            // Needed with downscaling. Probably this code will
-            // change once handling of borders is added back.
-            if (xx == 256) break;
+            // Fill the rest with the border color.
+            if (xx == 256) {
+                while(l < line+st77_width) *l++ = border_color;
+                break;
+            }
         }
 
         if (((yy+1)&dup_mask) == 0) {
