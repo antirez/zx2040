@@ -22,7 +22,8 @@
 
 #define DEFAULT_DISPLAY_SCALING 125 // Not all values possible. See README.
 #define DEFAULT_DISPLAY_BORDERS 0   // 0 = no borders. 1 = borders.
-
+#define DEFAULT_DISPLAY_PARTIAL_UPDATE 0 // The display is fast enough so
+                                         // stable timing is likely better.
 
 // #define st77_use_spi
 #define st77_use_parallel

@@ -134,6 +134,7 @@ struct emustate {
     uint32_t show_border;       // If 0, Spectrum border is not drawn.
     uint32_t scaling;           // Spectrum -> display scaling factor.
     uint32_t brightness;        // Display brightness.
+    uint32_t partial_update;    // Display partial update true/false.
 
     // Audio related
     uint32_t volume;            // Audio volume. Controls PWM value.
@@ -162,6 +163,7 @@ struct emustate {
 #define UI_EVENT_VOLUME 5
 #define UI_EVENT_SYNC 6
 #define UI_EVENT_BRIGHTNESS 7
+#define UI_EVENT_PARTIAL 8
 #define UI_EVENT_DISMISS 255
 
 const uint32_t SettingsZoomValues[] = {50,75,84,100,112,125,150,200};
@@ -191,6 +193,8 @@ struct UISettingsItem {
         "volume", &EMU.volume, 1, 0, 20, NULL, NULL},
     {UI_EVENT_BRIGHTNESS,
         "bright", &EMU.brightness, 1, 0, ST77_MAX_BRIGHTNESS, NULL, NULL},
+    {UI_EVENT_PARTIAL,
+        "fast-update", &EMU.partial_update, 1, 0, 1, NULL, NULL},
     {UI_EVENT_SYNC,
         "sync",(uint32_t*)&EMU.audio_sample_wait, 5, 0, 1000, NULL, NULL},
     {UI_EVENT_NONE,
@@ -603,6 +607,10 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
         v_border = (st77_height-zx_height)>>1;
     }
 
+    // If partial updates are disabled, force a full update by
+    // setting an impossible previous border color.
+    if (EMU.partial_update == 0) EMU.last_update_border_color = 0xff;
+
     // Transfer data to the display.
     //
     // Note that we use xx and yy counters other than x and y since
@@ -899,6 +907,7 @@ void init_emulator(void) {
     EMU.scaling = DEFAULT_DISPLAY_SCALING;
     EMU.volume = 20; // 0 to 20 valid values.
     EMU.brightness = ST77_MAX_BRIGHTNESS;
+    EMU.partial_update = DEFAULT_DISPLAY_PARTIAL_UPDATE;
     EMU.audio_sample_wait = 300; // Adjusted dynamically.
     vram_force_dirty(); // Fully update the first frame.
     ui_reset_crop_area();
@@ -1318,6 +1327,7 @@ int main() {
                 st77xx_fill(0);
                 break;
             case UI_EVENT_BORDER:
+            case UI_EVENT_PARTIAL:
                 vram_force_dirty();
                 break;
             case UI_EVENT_CLOCK:

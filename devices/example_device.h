@@ -121,5 +121,10 @@
 #define DEFAULT_DISPLAY_SCALING 100  // Not all values possible, see above.
 #define DEFAULT_DISPLAY_BORDERS 1    // 0 = no borders. 1 = borders.
 
+// Partial updates make the emulator MUCH faster. The sound timing may be
+// a bit less stable, but if your display is slow to update, it's recommended
+// to enable it.
+#define DEFAULT_DISPLAY_PARTIAL_UPDATE 1
+
 // That's it! Copy the modified file as 'device_config.h' in the root
 // directory and recompile it.
