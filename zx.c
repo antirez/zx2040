@@ -26,7 +26,6 @@ inline void vram_force_dirty(void);
 #include "zx.h"
 #include "zx-roms.h"
 
-#define DEBUG_MODE 1
 #define ZX_DEFAULT_SCANLINE_PERIOD 150
 
 /* Modified for even RGB565 conversion. */
@@ -712,9 +711,6 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
 
         yy++; // Next row.
     }
-    for (int j = 0; j < 24; j++)
-        printf("D[%d]: %02x\n", j, EMU.dirty_vram[j]);
-    printf("\n");
 
     vram_reset_dirty();
     EMU.last_update_border_color = EMU.zx.border_color;
@@ -892,7 +888,7 @@ int populate_games_list(void) {
 void init_emulator(void) {
     // Set default configuration.
     EMU.debug = 0;
-    EMU.menu_active = 0;
+    EMU.menu_active = 1;
     EMU.base_clock = 280000;
     EMU.emu_clock = 400000;
     EMU.tick = 0;
