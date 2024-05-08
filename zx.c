@@ -947,6 +947,25 @@ void init_emulator(void) {
     gpio_init(KEY_UP);
     gpio_init(KEY_DOWN);
     gpio_init(KEY_FIRE);
+
+    // Set the button associated pin in pull-up mode if it will
+    // be driven to ground when pressed.
+    #ifdef KEY_LEFT_PULLUP
+    gpio_set_pulls(KEY_LEFT,1,0);
+    #endif
+    #ifdef KEY_RIGHT_PULLUP
+    gpio_set_pulls(KEY_RIGHT,1,0);
+    #endif
+    #ifdef KEY_UP_PULLUP
+    gpio_set_pulls(KEY_UP,1,0);
+    #endif
+    #ifdef KEY_DOWN_PULLUP
+    gpio_set_pulls(KEY_DOWN,1,0);
+    #endif
+    #ifdef KEY_FIRE_PULLUP
+    gpio_set_pulls(KEY_FIRE,1,0);
+    #endif
+
     gpio_set_dir_in_masked(
         (1<<KEY_LEFT) | (1<<KEY_RIGHT) | (1<<KEY_UP) | (1<<KEY_DOWN) |
         (1<<KEY_FIRE));

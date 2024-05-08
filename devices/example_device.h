@@ -16,6 +16,19 @@
 #define KEY_UP      13  // Pico pin 13
 #define KEY_DOWN    14  // Pico pin 14
 
+// If you have buttons that will drive the pin to ground, you want
+// to initialize the GPIOs in pull-up mode. Uncomment the following.
+// Please also check the get_device_button() define below as you
+// will also need some tweak there.
+
+#if 0
+#define KEY_LEFT_PULLUP
+#define KEY_RIGHT_PULLUP
+#define KEY_UP_PULLUP
+#define KEY_DOWN_PULLUP
+#define KEY_FIRE_PULLUP
+#endif
+
 /* On most devices, we check if buttons are pressed just reading
  * the GPIO, but it is possible to redefine the macro reading the
  * value if needed, so that i2c keyboards or joypads can be supported.
@@ -23,6 +36,10 @@
  * instead of the default (high when pressed). */
 
 #define get_device_button(pin_num) gpio_get(pin_num)
+
+// For example, if you have buttons that drive GPIOs to ground,
+// you may want to invert the return value:
+// #define get_device_button(pin_num) (!gpio_get(pin_num))
 
 /* ================================ SPEAKER PIN ==============================
  * If you want audio support, can connect a piezo speaker to some pin.
