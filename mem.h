@@ -157,6 +157,14 @@ static inline uint8_t mem_rd(mem_t* mem, uint16_t addr) {
 }
 /* write a byte to 16-bit address */
 static inline void mem_wr(mem_t* mem, uint16_t addr, uint8_t data) {
+    // Track video memory accesses, for both bitmap and attributes.
+    // We call the vram_set_dirty_*() functions, that will make sure
+    // to populate a bitmap of scanlines that were modified by the
+    // Z80 program running. This way, if partial display update is enabled,
+    // we can write just this lines to the display: this is crucial for
+    // performances as certain big SPI displays take too much time for
+    // a full refresh. At the same time, at each zx_exec() call, the
+    // Spectrum program is hardly able to update all the screen.
     if (addr >= 0x4000 && addr <= 0x57ff) {
         if (data !=
         mem->page_table[addr>>MEM_PAGE_SHIFT].write_ptr[addr & MEM_PAGE_MASK])

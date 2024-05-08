@@ -194,7 +194,7 @@ struct UISettingsItem {
     {UI_EVENT_BRIGHTNESS,
         "bright", &EMU.brightness, 1, 0, ST77_MAX_BRIGHTNESS, NULL, NULL},
     {UI_EVENT_PARTIAL,
-        "fast-update", &EMU.partial_update, 1, 0, 1, NULL, NULL},
+        "part-up", &EMU.partial_update, 1, 0, 1, NULL, NULL},
     {UI_EVENT_SYNC,
         "sync",(uint32_t*)&EMU.audio_sample_wait, 5, 0, 1000, NULL, NULL},
     {UI_EVENT_NONE,
@@ -489,10 +489,14 @@ inline void vram_set_dirty_attr(uint16_t addr) {
     EMU.dirty_vram[((addr-0x5800)>>5) & 31] = 0xff;
 }
 
+// Clean the bitmap of modified scanlines.
 inline void vram_reset_dirty(void) {
     memset(EMU.dirty_vram,0,sizeof(EMU.dirty_vram));
 }
 
+// Set the bitmap of modified scanlines to all ones: this way
+// the update_display() function will be forced to do a full
+// refresh, border included.
 inline void vram_force_dirty(void) {
     memset(EMU.dirty_vram,0xff,sizeof(EMU.dirty_vram));
     EMU.last_update_border_color = 0xff; // Impossible color: update forced.
@@ -607,9 +611,8 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
         v_border = (st77_height-zx_height)>>1;
     }
 
-    // If partial updates are disabled, force a full update by
-    // setting an impossible previous border color.
-    if (EMU.partial_update == 0) EMU.last_update_border_color = 0xff;
+    // If partial updates are disabled, force a full update.
+    if (EMU.partial_update == 0) vram_force_dirty();
 
     // Transfer data to the display.
     //
@@ -634,7 +637,9 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
             st77xx_data(line,sizeof(line)-16);
             continue;
         } else {
-            if (yy >= 192) break; // End of Spectrum bitmap reached.
+            // If borders are disabled and we reached the end of Spectrum
+            // bitmap, we are done updating the display.
+            if (yy >= 192) break;
         }
 
         // Seek the row in the Spectrum VMEM
@@ -686,16 +691,20 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
             }
 
             // Stop if we reach the end of Spectrum row.
-            // Fill the rest with the border color.
+            // Fill the rest with the border color and go to the
+            // next scanline.
             if (xx == 256) {
                 while(l < line+st77_width) *l++ = border_color;
                 break;
             }
         }
 
+        // Now that the scanline was computed, update the display
+        // corresponding scanline by writing it on the bus.
         if (((yy+1)&dup_mask) == 0) {
             // Duplicate/skip row according to scaling mask.
             if (dup) {
+                // Duplicate row.
                 if (update_row) {
                     st77xx_setwin(0, y, st77_width-1, y);
                     st77xx_data(line,sizeof(line)-16);
@@ -706,7 +715,8 @@ void update_display(uint32_t scaling, uint32_t border, uint32_t blink) {
                     st77xx_data(line,sizeof(line)-16);
                 }
             } else {
-                y--;    // Skip row.
+                // Skip row.
+                y--;
             }
         } else {
             // If scaling does not affect this line, just
