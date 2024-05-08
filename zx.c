@@ -754,12 +754,11 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int fl
         if (keymap[j] == KEY_END) {
             // End of keymap reached.
             break;
-        } else if ((keymap[j] == PRESS_AT_TICK ||
-                    keymap[j] == RELEASE_AT_TICK) &&
-                  keymap[j+1] == ticks)
-        {
+        } else if (keymap[j] == PRESS_AT_TICK || keymap[j] == RELEASE_AT_TICK) {
+            if (keymap[j+1] != ticks) continue; // Tick number mismatch.
+            if (!(flags & HANDLE_KEYPRESS_MACRO)) continue; // No handling.
+
             // Press/release keys when a given frame is reached.
-            if (!(flags & HANDLE_KEYPRESS_MACRO)) continue;
             if (keymap[j] == PRESS_AT_TICK) {
                 printf("Pressing '%c' at frame %d\n",keymap[j+2],ticks);
                 zx_key_down(zx,keymap[j+2]);
