@@ -13,6 +13,7 @@ This project is specifically designed for the Raspberry Pico and ST77xx based di
 * The emulator has an **UI that allows to select games** into a list, change certain emulation settings and so forth.
 * **Easy games upload**, with a script to create a binary image of Z80 games and transfer it into the Pico flash. Games don't need to match the keymap by name: grepping inside memory for known strings is used instead, so you can create your own Z80 snapshots files, and still defined keymaps will work.
 * **Real time upscaling and downscaling** of video, to use the emulator with displays that are larger or smaller than the Spectrum video output. The emulator is also able to remove borders.
+* **Partial update of the display** by tracking memory accesses to the video memory, so that it is possible to transfer a subset of the scanlines to the physical display. This feature can be turned on and off interactively.
 * **Crazy overclocking** to make it work fast enough :D **Warning**: the code must run from the Pico RAM, and not in the memory mapped flash, otherwise it's not possible to go at 400Mhz. This is achieved simply with `pico_set_binary_type(zx copy_to_ram)` in `CMakeList.txt`. There are no problems accessing the flash to load games, because the code down-clocks the CPU when loading games, and then returns at a higher overclocking speeds immediately after.
 
 ## Changes made to the original emulator
@@ -55,13 +56,26 @@ This project only supports ST77xx displays so far. They are cheap and widespread
 
 A note of warning: it is crucial to be able to refresh the display
 fast enough. SPI displays work well if they are not huge, let's say that up to
-320x240 max the update latency will not be so terrible.
+320x240 max the update latency will not be so terrible. However support for partial display update makes the performance of large displays much better in practice, see the next section.
 
 Parallel 8-lines ST77xx displays are much better, for instance in the Tufty 2040, using upscaling, it is possible to transfer the Spectrum CRT frame buffer to the display in something like ~14 milliseconds, so even refreshing the display ~20 times per second we have 700 milliseconds of CPU time to run the emulator itself.
 
 320x240 displays are particularly good because the Spectrum full visible area including borders is 320x256 pixels, so when borders are enabled this is a nice view. When borders are disabled, it's even better: the bitmap resolution of the Spectrum is 256x192 pixels, it means that using 125% upscaling we match exactly the 320x240 display resolution!
 
 The display should also be big enough if you want a nice play experience. Spectrum games were designed to be displayed in a big TV set, so certain details can be too small if very small displays are used. 2.4" is a nice size. Larger is even better.
+
+## Display partial update
+
+If your display is big and/or slow, the display refresh time can slow down
+the emulator significantly. If that's the case, when creating the `device_config.h` file for your board, make sure to enable partial update of display using the following define:
+
+    #define DEFAULT_DISPLAY_PARTIAL_UPDATE 1
+
+You can enable this feature even from the menu, but setting the define will make it on by default.
+
+When this feature is enabled, the emulator tracks video memory accesses in a bitmap of *affected scanlines*. Later, when writing the Spectrum video memory on the display, only the scanlines touched by the ZX Spectrum program running will actually be transferred to the display. This is a very significant speedup.
+
+Please note that when the menu is shown, the emulator always uses full updates of the display, so in order to evaluate the performance gain make sure to enter the game with the menu dismissed.
 
 ## Installation from sources
 
