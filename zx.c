@@ -155,16 +155,17 @@ struct emustate {
 // Numerical parameters that it is possible to change using the
 // user interface.
 
-#define UI_EVENT_NONE 0
-#define UI_EVENT_LOADGAME 1
-#define UI_EVENT_CLOCK 2
-#define UI_EVENT_BORDER 3
-#define UI_EVENT_SCALING 4
-#define UI_EVENT_VOLUME 5
-#define UI_EVENT_SYNC 6
-#define UI_EVENT_BRIGHTNESS 7
-#define UI_EVENT_PARTIAL 8
-#define UI_EVENT_DISMISS 255
+#define UI_EVENT_NONE 0         // No key pressed while in menu mode.
+#define UI_EVENT_LOADGAME 1     // New game loaded.
+#define UI_EVENT_CLOCK 2        // Clock speed changed.
+#define UI_EVENT_BORDER 3       // Display border option toggled.
+#define UI_EVENT_SCALING 4      // Display scaling modified.
+#define UI_EVENT_VOLUME 5       // Volume modified.
+#define UI_EVENT_SYNC 6         // Audio sync wait time modified.
+#define UI_EVENT_BRIGHTNESS 7   // Display brightness modified.
+#define UI_EVENT_PARTIAL 8      // Display partial update toggled.
+#define UI_EVENT_NAVIGATION 254 // Just moving around in the menu.
+#define UI_EVENT_DISMISS 255    // Menu dismissed.
 
 const uint32_t SettingsZoomValues[] = {50,75,84,100,112,125,150,200};
 const char *SettingsZoomValuesNames[] = {"50%","75%","84%","100%","112%","125%","150%","200%",NULL};
@@ -378,6 +379,8 @@ uint32_t ui_handle_key_press(void) {
     }
     if (key_pressed == -1) return UI_EVENT_NONE; // No key pressed right now.
 
+    event = UI_EVENT_NAVIGATION; // If there is a more specific event, this
+                                 // will be set accordingly.
     int value_change_dir = -1;
     switch(key_pressed) {
     case KEMPSTONE_UP: ui_go_next_prev_game(-1); break;
@@ -469,7 +472,6 @@ void ui_draw_menu(void) {
         y += 8*font_size;
     }
     ui_reset_crop_area();
-    vram_force_dirty();
 }
 
 /* =========================== Emulator implementation ====================== */
@@ -1362,6 +1364,7 @@ int main() {
                 set_sys_clock_khz(EMU.emu_clock, false);
                 break;
             }
+            if (ui_event != UI_EVENT_NONE) vram_force_dirty();
         }
 
         // If the game selection menu is active or just dismissed, we

@@ -75,8 +75,6 @@ You can enable this feature even from the menu, but setting the define will make
 
 When this feature is enabled, the emulator tracks video memory accesses in a bitmap of *affected scanlines*. Later, when writing the Spectrum video memory on the display, only the scanlines touched by the ZX Spectrum program running will actually be transferred to the display. This is a very significant speedup.
 
-Please note that when the menu is shown, the emulator always uses full updates of the display, so in order to evaluate the performance gain make sure to enter the game with the menu dismissed.
-
 ## Installation from sources
 
 If you build from sources:
