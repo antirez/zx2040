@@ -765,6 +765,7 @@ void handle_zx_key_press(zx_t *zx, const uint8_t *keymap, uint32_t ticks, int fl
                 printf("Pressing '%c' at frame %d\n",keymap[j+2],ticks);
                 zx_key_down(zx,keymap[j+2]);
             } else {
+                printf("Releasing '%c' at frame %d\n",keymap[j+2],ticks);
                 zx_key_up(zx,keymap[j+2]);
             }
         } else {
@@ -1102,7 +1103,7 @@ int keymap_descr_to_row(char *p, uint8_t *map) {
             pos++;
             if (atframe) {
                 // Populate the release entry too.
-                map[5] = buf[2]; // Key to release is the same.
+                map[5] = map[2]; // Key to release is the same.
                 map[4] = map[1] + atoi(buf+pos); // Release frame.
             }
         }
